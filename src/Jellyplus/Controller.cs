@@ -1,6 +1,9 @@
 using Jellyfin.Data.Enums;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Entities.TV;
+using MediaBrowser.Controller.Dto;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Model.Querying;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -75,12 +78,31 @@ public sealed class JellyplusController(StateStore store, ProgressService progre
         .Select(h => library.GetItemById(h.Scope)).Where(i => i is not null && i.IsVisibleStandalone(progress.User(Me)))
         .Select(i => new { i!.Id, i.Name }).ToArray());
 
+    [HttpPost("Hidden/Resolve")]
+    public ActionResult ResolveHidden([FromBody] Guid[] items) => Execute(() =>
+    {
+        if (items.Length > 200) throw new ArgumentException("Zu viele Medien.");
+        var user = progress.User(Me);
+        var hidden = store.Read(s => s.Hidden.Where(h => h.User == Me).Select(h => h.Scope).ToHashSet());
+        return items.Distinct().Select(id => library.GetItemById(id))
+            .Where(i => i is not null && hidden.Contains(i is Episode episode ? episode.SeriesId : i.Id) && i.IsVisibleStandalone(user))
+            .Select(i => i!.Id).ToArray();
+    });
+
     [HttpGet("Seasonal")]
     public ActionResult Seasonal() => Execute(() =>
     {
         var season = Rules.Season(DateOnly.FromDateTime(DateTime.Now));
         if (!Plugin.Instance.Configuration.SeasonalRecommendations || season is null) return new { Title = "", Items = Array.Empty<object>() };
-        var items = library.GetItemList(new InternalItemsQuery(progress.User(Me)) { Recursive = true, IncludeItemTypes = [BaseItemKind.Movie] });
+        var items = library.GetItemList(new InternalItemsQuery(progress.User(Me))
+        {
+            Recursive = true, IncludeItemTypes = [BaseItemKind.Movie],
+            DtoOptions = new DtoOptions(false)
+            {
+                Fields = [ItemFields.Genres, ItemFields.Tags, ItemFields.Overview],
+                EnableImages = false, EnableUserData = false
+            }
+        });
         return new
         {
             Title = season,

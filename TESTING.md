@@ -1,5 +1,12 @@
 # Validierung
 
+## Korrekturen in 0.1.1.0
+
+- 21 .NET-Tests und 10 DOM-Tests bestehen, einschließlich profilabhängiger Menüs, verborgen bleibender Karten nach Cache-Neudarstellung, Berechtigungen der Kartenauflösung und Wiederholung fehlgeschlagener saisonaler Anfragen.
+- Im echten Browser mit `layout=tv`: saisonale Zeile sichtbar; nach Abschalten der Profilfreigabe kein Watch-Together-Menüpunkt; Ausblenden über das Kontextmenü entfernt die Karte ohne Dokumentnavigation.
+- Genre-Erkennung mit einem neutral benannten Testfilm geprüft, dessen einzige saisonale Zuordnung das Genre Horror ist.
+- Der gemeldete Absturz der physischen webOS-App ist mangels Gerät/Logs nicht direkt reproduziert. Der bisherige vollständige Seitenneustart wurde entfernt.
+
 ## Durchgeführte Integrationstests
 
 Am 20.10.2026 lokal mit dem offiziellen Jellyfin-12.2-Windows-Paket und Edge (headless):

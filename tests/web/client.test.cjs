@@ -18,7 +18,8 @@ function fixture(markup, responses = {}) {
     w.fetch = async (url, options) => {
         const path = url.replace('http://localhost/Jellyplus/', '');
         calls.push({ path, options });
-        return { ok: true, json: async () => responses[path] || (path === 'Settings' ? { Enabled: true, SeasonalRecommendations: true, ShuffleOpensDetails: true, Hidden: [] } : {}) };
+        const result = typeof responses[path] === 'function' ? await responses[path](options) : responses[path];
+        return { ok: true, json: async () => result || (path === 'Settings' ? { Enabled: true, SeasonalRecommendations: true, ShuffleOpensDetails: true, Hidden: [] } : {}) };
     };
     w.eval(source);
     return { dom, w, calls };
@@ -137,5 +138,59 @@ test('remote arrow keys and back keep dialogs operable', async () => {
         w.document.dispatchEvent(new w.KeyboardEvent('keydown', { keyCode: 461, bubbles: true }));
         await wait();
         assert.equal(w.document.querySelector('.jp-overlay'), null);
+    } finally { dom.window.close(); }
+});
+
+test('Watch Together is absent when the profile has not opted in', async () => {
+    const { dom, w } = fixture('<div data-id="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" data-type="Movie"><button data-action="menu">More</button></div>', {
+        Settings: { Enabled: false, SeasonalRecommendations: false, Hidden: [] }
+    });
+    try {
+        await wait(); w.document.querySelector('button').click();
+        const sheet = w.document.createElement('div'); sheet.className = 'actionSheetContent';
+        sheet.innerHTML = '<div><button class="actionSheetMenuItem">Play</button></div>';
+        w.document.body.appendChild(sheet); await wait();
+        assert.doesNotMatch(sheet.textContent, /Watch Together/);
+        assert.match(sheet.textContent, /ausblenden/);
+    } finally { dom.window.close(); }
+});
+
+test('hide persists first and removes a cached home card without reloading the page', async () => {
+    const id = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+    let hidden = false;
+    const { dom, w, calls } = fixture('<div class="homePage"><div class="itemsContainer" data-monitor="videoplayback,markplayed"><div data-id="' + id + '" data-type="Movie"><button data-action="menu">More</button></div></div></div>', {
+        Settings: () => ({ Enabled: false, SeasonalRecommendations: false, Hidden: hidden ? [id] : [] }),
+        ['Hidden/' + id]: () => { hidden = true; return {}; },
+        'Hidden/Resolve': () => [id]
+    });
+    let navigationErrors = 0;
+    dom.virtualConsole.on('jsdomError', error => { if (/navigation/.test(error.message)) navigationErrors++; });
+    try {
+        await wait(); const card = w.document.querySelector('[data-type]'); card.querySelector('button').click();
+        const sheet = w.document.createElement('div'); sheet.className = 'actionSheetContent';
+        sheet.innerHTML = '<div><button class="actionSheetMenuItem">Play</button></div>';
+        w.document.body.appendChild(sheet); await wait();
+        sheet.querySelector('.jp-menu button').click(); await wait(400);
+        assert.equal(hidden, true);
+        assert.equal(card.classList.contains('jp-hidden'), true);
+        assert.equal(navigationErrors, 0);
+        assert.ok(calls.find(c => c.path === 'Hidden/Resolve'));
+        const replacement = card.cloneNode(true); replacement.classList.remove('jp-hidden');
+        card.replaceWith(replacement); await wait();
+        assert.equal(replacement.classList.contains('jp-hidden'), true, 'cached re-render stays hidden');
+    } finally { dom.window.close(); }
+});
+
+test('seasonal row supports TV home containers and retries transient failures', async () => {
+    let attempts = 0;
+    const { dom, w } = fixture('<div class="homePage"><div class="homeSectionsContainer"><div>Existing rows</div></div></div>', {
+        Seasonal: () => { if (++attempts === 1) throw new Error('Temporary failure'); return { Title: 'Halloween', Items: [{Id: 'bbbb', Name: 'Metadata film'}] }; }
+    });
+    try {
+        await wait(400); assert.equal(w.document.querySelector('.jp-season'), null);
+        const now = w.Date.now(); w.Date.now = () => now + 16000;
+        w.document.body.appendChild(w.document.createElement('div')); await wait(400);
+        assert.equal(attempts, 2);
+        assert.equal(w.document.querySelector('.homeSectionsContainer').firstChild.classList.contains('jp-season'), true);
     } finally { dom.window.close(); }
 });

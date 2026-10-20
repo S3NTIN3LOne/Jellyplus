@@ -5,6 +5,8 @@
     window.__jellyplus = true;
     var settings = null, user = null, pendingMenu = null, refreshing = false;
     var seasonKey = '', seasonLoading = false, observerQueued = false;
+    var seasonRetryAt = 0, hiddenKey = '', hiddenLoading = false, hiddenResolved = [];
+    var connected = function (node) { return node && document.documentElement.contains(node); };
     var api = function () { return window.ApiClient; };
     var idKey = function (id) { return String(id || '').replace(/-/g, '').toLowerCase(); };
     var normalize = function (value) {
@@ -22,7 +24,7 @@
         var response = await fetch(current.getUrl('Jellyplus/' + path), {
             method: method || 'GET',
             headers: {
-                Authorization: 'MediaBrowser Client="Jellyplus", Device="Web", DeviceId="' + (current.deviceId ? current.deviceId() : 'jellyplus-web') + '", Version="0.1.0", Token="' + current.accessToken() + '"',
+                Authorization: 'MediaBrowser Client="Jellyplus", Device="Web", DeviceId="' + (current.deviceId ? current.deviceId() : 'jellyplus-web') + '", Version="0.1.1", Token="' + current.accessToken() + '"',
                 'Content-Type': 'application/json'
             },
             body: body === undefined ? undefined : JSON.stringify(body),
@@ -59,7 +61,7 @@
             function close(value) {
                 document.removeEventListener('keydown', keys, true);
                 overlay.remove();
-                if (previous && previous.isConnected) previous.focus();
+                if (connected(previous)) previous.focus();
                 resolve(value);
             }
             choices.concat([{ label: 'Schließen', value: null }]).forEach(function (choice) {
@@ -90,7 +92,7 @@
         var nextUser = current && current.getCurrentUserId();
         if (!nextUser) { settings = null; user = null; seasonKey = ''; document.querySelectorAll('.jp-owned').forEach(function (n) { n.remove(); }); return; }
         if (user !== nextUser) {
-            settings = null; seasonKey = ''; pendingMenu = null;
+            settings = null; seasonKey = ''; seasonRetryAt = 0; hiddenKey = ''; pendingMenu = null;
             document.querySelectorAll('.jp-owned').forEach(function (n) { n.remove(); });
         }
         user = nextUser;
@@ -98,6 +100,7 @@
         try {
             var loaded = await request('Settings');
             if (api().getCurrentUserId() === nextUser) settings = loaded;
+            if (settings && !settings.enabled) document.querySelectorAll('.jp-watch').forEach(function (n) { n.remove(); });
             if (settings && !settings.seasonalRecommendations) document.querySelectorAll('.jp-season').forEach(function (n) { n.remove(); });
         } catch (error) { settings = null; console.warn('[Jelly+]', error); }
         finally { refreshing = false; schedule(); }
@@ -135,12 +138,53 @@
     }
     async function hide(item) {
         await request('Hidden/' + item, 'POST');
-        window.location.reload();
+        hiddenKey = '';
+        await refresh();
+        await applyHidden();
     }
     async function restore() {
         var items = await request('Hidden');
         var selected = await choose('Ausgeblendete Medien', 'Serie oder Film wieder auf der Startseite zulassen.', items.map(function (i) { return { label: i.name, value: i.id }; }));
-        if (selected) { await request('Hidden/' + selected, 'DELETE'); await refresh(); }
+        if (selected) { await request('Hidden/' + selected, 'DELETE'); hiddenKey = ''; await refresh(); await applyHidden(); }
+    }
+    async function applyHidden() {
+        if (!settings || hiddenLoading) return;
+        var cards = Array.prototype.slice.call(document.querySelectorAll(
+            '.homePage .itemsContainer[data-monitor*="videoplayback"] [data-id][data-type], #homeTab .itemsContainer[data-monitor*="videoplayback"] [data-id][data-type]'));
+        if (!settings.hidden.length) {
+            cards.forEach(function (card) { card.classList.remove('jp-hidden'); });
+            hiddenKey = '';
+            return;
+        }
+        var ids = cards.map(function (card) { return card.getAttribute('data-id'); });
+        var key = user + ':' + settings.hidden.join(',') + ':' + ids.join(',');
+        if (!ids.length) return;
+        if (key === hiddenKey) { paintHidden(cards, hiddenResolved); return; }
+        var requestUser = user;
+        hiddenLoading = true;
+        try {
+            var hidden = [];
+            for (var start = 0; start < ids.length; start += 200) {
+                hidden = hidden.concat(await request('Hidden/Resolve', 'POST', ids.slice(start, start + 200)));
+            }
+            if (user !== requestUser || api().getCurrentUserId() !== requestUser) return;
+            hiddenResolved = hidden.map(idKey);
+            paintHidden(cards, hiddenResolved);
+            hiddenKey = key;
+        } catch (error) { console.warn('[Jelly+] Ausblenden:', error); }
+        finally { hiddenLoading = false; }
+    }
+    function paintHidden(cards, keys) {
+        cards.forEach(function (card) {
+                var remove = keys.indexOf(idKey(card.getAttribute('data-id'))) >= 0;
+                if (remove && card.contains(document.activeElement)) {
+                    var next = cards.find(function (c) { return keys.indexOf(idKey(c.getAttribute('data-id'))) < 0; });
+                    var focus = next && next.querySelector('a,button,[tabindex]');
+                    if (focus) focus.focus();
+                    else { var home = document.querySelector('.headerHomeButton'); if (home) home.focus(); }
+                }
+                card.classList.toggle('jp-hidden', remove);
+        });
     }
     function preferences() {
         var container = document.querySelector('#languagePreferencesPage .settingsContainer');
@@ -197,25 +241,33 @@
                 }
             });
         }
-        group.appendChild(button('Watch Together', async function () { await closeNative(); return watch(item); }));
+        if (settings.enabled) {
+            var watchButton = button('Watch Together', async function () {
+                await closeNative();
+                if (settings && settings.enabled) return watch(item);
+            });
+            watchButton.classList.add('jp-watch');
+            group.appendChild(watchButton);
+        }
         var hidden = settings.hidden.some(function (id) { return idKey(id) === idKey(item); });
         group.appendChild(button(hidden ? 'Auf Startseite wieder anzeigen' : 'Aus „Als nächstes“ und „Weiterschauen“ ausblenden', async function () {
             await closeNative();
-            if (hidden) return request('Hidden/' + item, 'DELETE').then(function () { window.location.reload(); });
+            if (hidden) { await request('Hidden/' + item, 'DELETE'); hiddenKey = ''; await refresh(); return applyHidden(); }
             return hide(item);
         }));
         nativeItem.parentNode.appendChild(group);
     }
     async function seasonal() {
-        var home = document.querySelector('#homeTab .sections');
+        var home = document.querySelector('#homeTab .sections, #homeTab.homeSectionsContainer, .homePage .homeSectionsContainer, .homePage .sections');
         if (!home || !settings.seasonalRecommendations || seasonLoading || home.querySelector('.jp-season')) return;
         var key = user + ':' + new Date().toDateString();
-        if (seasonKey === key) return;
+        if (Date.now() < seasonRetryAt && seasonKey === key) return;
+        var requestUser = user;
         seasonLoading = true;
         try {
             var result = await request('Seasonal');
-            if (!result.items.length) { seasonKey = key; return; }
-            if (!home.isConnected || api().getCurrentUserId() !== user) return;
+            if (!connected(home) || api().getCurrentUserId() !== requestUser || !settings || !settings.seasonalRecommendations) return;
+            if (!result.items || !result.items.length) { seasonKey = key; seasonRetryAt = Date.now() + 60000; return; }
             var section = element('section', '', 'verticalSection jp-season jp-owned padded-left padded-right');
             section.appendChild(element('h2', result.title, 'sectionTitle'));
             var row = element('div', '', 'jp-posters');
@@ -233,8 +285,10 @@
                 var next = card && (e.key === 'ArrowLeft' ? card.previousElementSibling : card.nextElementSibling);
                 if (next) { e.preventDefault(); e.stopPropagation(); next.focus(); next.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
             });
-            section.appendChild(row); home.appendChild(section);
-        } catch (error) { console.warn('[Jelly+] Saisonale Empfehlungen:', error); seasonKey = key; }
+            section.appendChild(row);
+            home.insertBefore(section, home.firstChild);
+            seasonKey = ''; seasonRetryAt = 0;
+        } catch (error) { console.warn('[Jelly+] Saisonale Empfehlungen:', error); seasonKey = key; seasonRetryAt = Date.now() + 15000; }
         finally { seasonLoading = false; }
     }
     async function shuffle(target) {
@@ -256,13 +310,16 @@
         setTimeout(function () {
             observerQueued = false;
             if (!settings || !api() || api().getCurrentUserId() !== user) return;
-            preferences(); extendMenu(); seasonal();
+            preferences(); extendMenu(); seasonal(); applyHidden();
         }, 100);
     }
     function start() {
         var style = element('style');
         style.textContent = '.jp-overlay{position:fixed;inset:0;z-index:100000;background:#000b;display:flex;align-items:center;justify-content:center}.jp-dialog{background:#202020;color:white;max-width:44em;width:85%;max-height:85vh;overflow:auto;padding:2em;border-radius:.6em}.jp-button{display:block;margin:.7em 0;padding:1em;white-space:normal;text-align:left}.jp-button:focus,.jp-poster:focus,.jp-toggle:focus-within{outline:3px solid #00a4dc;outline-offset:3px}.jp-posters{display:flex;gap:1em;overflow-x:auto;padding:.5em .3em 1.5em}.jp-poster{flex:0 0 10em;color:inherit;text-decoration:none}.jp-poster img{width:100%;height:15em;object-fit:cover;border-radius:.4em}.jp-poster span{display:block;margin-top:.5em}.jp-preferences{margin:2em 0}.jp-toggle{display:block;padding:1em 0}.jp-toggle input{width:1.3em;height:1.3em}.jp-menu{padding:.5em 1em}';
         document.head.appendChild(style);
+        var hiddenStyle = element('style');
+        hiddenStyle.textContent = '.jp-hidden{display:none!important}';
+        document.head.appendChild(hiddenStyle);
         document.addEventListener('click', function (e) {
             if (e.target.closest('.jp-owned, .jp-overlay')) return;
             var shuffleButton = e.target.closest('.btnShuffle');

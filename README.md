@@ -2,7 +2,7 @@
 
 Ein Server-Plugin für **Jellyfin 12.2**, das gemeinsamen Wiedergabefortschritt und zusätzliche Funktionen in Jellyfin Web und dem darauf basierenden LG-webOS-Client bereitstellt.
 
-**Status: erste Vorschau (0.1.0.0).** Die Integration richtet sich an den klassischen Jellyfin-Webclient einschließlich TV-Layout. Die experimentelle moderne Weboberfläche und andere native Clients gehören nicht zum unterstützten Umfang. Ein Test auf einem echten LG-Fernseher steht noch aus.
+**Status: Vorschau (0.1.1.0).** Die Integration richtet sich an den klassischen Jellyfin-Webclient einschließlich TV-Layout. Die experimentelle moderne Weboberfläche und andere native Clients gehören nicht zum unterstützten Umfang. Das TV-Layout wird im Browser geprüft; ein Test auf einem echten LG-Fernseher steht noch aus.
 
 ## Installation auf Unraid / Docker
 
@@ -24,6 +24,7 @@ Das bestehende Docker-Image bleibt unverändert. Kein JavaScript-Injector, zusä
 
 - Unter **Profil → Wiedergabe → Jelly+** aktiviert jeder Nutzer **Watch Together**. Damit gibt er sich für Verknüpfungen durch andere aktivierte Profile frei.
 - Im Drei-Punkte-Menü eines Films, einer Serie oder einer Episode **Watch Together** wählen. Episoden verknüpfen die zugehörige Serie.
+- Der Menüpunkt erscheint ausschließlich bei aktivierter Profilfreigabe.
 - Profil auswählen und festlegen, welcher Fortschritt übernommen werden soll. Bei Serien gilt diese Auswahl für die gemeinsam zugänglichen Episoden.
 - Abspielposition, Gesehen-Status, Wiedergabezähler und letztes Wiedergabedatum werden geteilt. Favoriten, Bewertungen und Audio-/Untertitelpräferenzen bleiben persönlich.
 - Verknüpfungen sind beidseitig und können Gruppen bilden. Die Auswahl beim Verbinden gilt für alle beteiligten Gruppenmitglieder; der Dialog nennt deren Anzahl. Beim späteren Abspielen gewinnt die zuletzt verarbeitete Änderung.
@@ -35,6 +36,7 @@ Das bestehende Docker-Image bleibt unverändert. Kein JavaScript-Injector, zusä
 - **01.12.–31.12.: Weihnachten** anhand von Titeln, Beschreibungen, Genres und Tags wie „Christmas“, „Weihnachten“ und „Heiligabend“.
 - **15.10.–01.11.: Halloween** einschließlich Horrorfilmen.
 - Bis zu 40 passende Filme als eigene Startseitenzeile; administrativ abschaltbar. Es werden nur für das angemeldete Profil zugängliche Medien angezeigt.
+- Die Zeile steht oben auf der Startseite. Fehlgeschlagene Anfragen werden erneut versucht; ohne passende Filme oder außerhalb der Zeiträume erscheint keine Zeile.
 - Die Zeiträume sind inklusive; maßgeblich ist die Serverzeitzone. Auf Unraid kann hierfür `TZ=Europe/Berlin` am Container gesetzt werden.
 
 ### Zufällig zur Übersicht
@@ -44,6 +46,8 @@ Die Admin-Option lässt die Bibliotheks-Schaltfläche **Zufällig** einen zufäl
 ### Startseite aufräumen
 
 Im Drei-Punkte-Menü **Aus „Als nächstes“ und „Weiterschauen“ ausblenden** auswählen. Episoden blenden ihre gesamte Serie für das eigene Profil aus. Der Wiedergabefortschritt bleibt erhalten.
+
+Die Karten werden nach erfolgreichem Speichern direkt ausgeblendet. Es erfolgt kein vollständiger Seitenneustart; bereits zwischengespeicherte Startseitenkarten werden ebenfalls berücksichtigt.
 
 Eine Serie kehrt zurück, wenn das Profil eine andere Episode als die zuletzt abgespielte startet. Dabei zählt auch die bisher ungestartete Episode, deren „Als nächstes“-Karte ausgeblendet wurde. Ein Film kehrt bei erneutem Wiedergabestart zurück. Unter **Profil → Wiedergabe → Ausgeblendete Medien verwalten** kann man Medien jederzeit wieder zulassen.
 
@@ -62,7 +66,7 @@ npm test
 Paket und Manifest erstellen (PowerShell 7 oder Windows PowerShell):
 
 ```powershell
-./scripts/package.ps1 -Version 0.1.0.0 -Repository S3NTIN3LOne/Jellyplus
+./scripts/package.ps1 -Version 0.1.1.0 -Repository S3NTIN3LOne/Jellyplus
 ```
 
 Das ZIP enthält ausschließlich die Plugin-DLL einschließlich eingebetteter Webressourcen. Die Jellyfin-Assemblies liefert der Server. Der GitHub-Workflow **Publish release** erstellt nach erfolgreichen Tests eine Vorabversion und aktualisiert das Manifest. Vor einer stabilen Freigabe die Geräteprüfungen in [TESTING.md](TESTING.md) durchführen.

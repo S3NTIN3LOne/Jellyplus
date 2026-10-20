@@ -124,6 +124,22 @@ public sealed class ProgressTests : IDisposable
         _data.Raise(d => d.UserDataSaved += null, new UserDataSaveEventArgs { UserId = _a.Id, Item = next.Object, UserData = unstarted, SaveReason = UserDataSaveReason.PlaybackStart });
         Assert.Empty(_store.Read(s => s.Hidden));
     }
+    [Fact]
+    public void HiddenCardResolutionIsScopedToAuthenticatedUserAndVisibleItems()
+    {
+        _service.Hide(_a.Id, _movie.Object.Id);
+        var controller = new JellyplusController(_store, _service, Mock.Of<IUserManager>(), _library.Object);
+        var context = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+        context.User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(
+            [new System.Security.Claims.Claim("Jellyfin-UserId", _b.Id.ToString())], "test"));
+        controller.ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext { HttpContext = context };
+        Assert.Empty(Assert.IsType<Guid[]>(Assert.IsType<Microsoft.AspNetCore.Mvc.OkObjectResult>(controller.ResolveHidden([_movie.Object.Id])).Value));
+        context.User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(
+            [new System.Security.Claims.Claim("Jellyfin-UserId", _a.Id.ToString())], "test"));
+        Assert.Single(Assert.IsType<Guid[]>(Assert.IsType<Microsoft.AspNetCore.Mvc.OkObjectResult>(controller.ResolveHidden([_movie.Object.Id])).Value));
+        _movie.Setup(i => i.IsVisibleStandalone(_a)).Returns(false);
+        Assert.Empty(Assert.IsType<Guid[]>(Assert.IsType<Microsoft.AspNetCore.Mvc.OkObjectResult>(controller.ResolveHidden([_movie.Object.Id])).Value));
+    }
     public void Dispose()
     {
         _service.StopAsync(default).GetAwaiter().GetResult();

@@ -1,5 +1,5 @@
 param(
-    [string]$Version = '0.1.0.0',
+    [string]$Version = '0.1.1.0',
     [string]$Repository = 'S3NTIN3LOne/Jellyplus'
 )
 $ErrorActionPreference = 'Stop'
@@ -24,7 +24,7 @@ $manifest = @(@{
     category = 'General'
     versions = @(@{
         version = $Version
-        changelog = 'First preview: Watch Together, seasonal recommendations, shuffle to details and hidden home-screen items.'
+        changelog = 'Fix home-card hiding without a page reload, respect Watch Together opt-in, retry seasonal recommendations and support TV home containers.'
         targetAbi = '12.2.0.0'
         sourceUrl = "https://github.com/$Repository/releases/download/v$Version/$zipName"
         checksum = (Get-FileHash -LiteralPath $zip -Algorithm MD5).Hash.ToLowerInvariant()
