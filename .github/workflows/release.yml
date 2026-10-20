@@ -1,0 +1,50 @@
+name: Publish release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Four-part version (e.g. 0.1.1.0)
+        required: true
+permissions:
+  contents: write
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: dotnet test -c Release
+      - run: npm ci --ignore-scripts && npm test
+      - name: Package
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_REPO: ${{ github.repository }}
+        run: ./scripts/package.ps1 -Version $env:RELEASE_VERSION -Repository $env:RELEASE_REPO
+      - name: Upload draft before publishing manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: gh release create "v$RELEASE_VERSION" "artifacts/Jellyplus_$RELEASE_VERSION.zip" --draft --prerelease --title "Jelly+ $RELEASE_VERSION" --notes-file RELEASE_NOTES.md
+      - name: Publish release and manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          gh release edit "v$RELEASE_VERSION" --draft=false
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add manifest.json
+          git commit -m "Update plugin manifest for $RELEASE_VERSION"
+          git push origin HEAD:main

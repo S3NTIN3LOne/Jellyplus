@@ -1,0 +1,20 @@
+[
+    {
+        "name":  "Jelly+",
+        "owner":  "S3NTIN3LOne",
+        "description":  "Shared playback progress, seasonal recommendations and a personal home screen for Jellyfin Web and LG webOS.",
+        "versions":  [
+                         {
+                             "changelog":  "First preview: Watch Together, seasonal recommendations, shuffle to details and hidden home-screen items.",
+                             "version":  "0.1.0.0",
+                             "checksum":  "0f8ed9c95a35e29fccb93ade2368991b",
+                             "timestamp":  "2026-10-20T20:26:03Z",
+                             "targetAbi":  "12.2.0.0",
+                             "sourceUrl":  "https://github.com/S3NTIN3LOne/Jellyplus/releases/download/v0.1.0.0/Jellyplus_0.1.0.0.zip"
+                         }
+                     ],
+        "category":  "General",
+        "overview":  "Shared progress and a personal home screen",
+        "guid":  "d357e8be-6be8-46b5-bd30-15a530412cd9"
+    }
+]

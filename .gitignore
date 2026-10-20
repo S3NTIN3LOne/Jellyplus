@@ -1,0 +1,11 @@
+bin/
+obj/
+/packages/
+riderModule.iml
+/_ReSharper.Caches/
+.idea/
+.tools/
+.reference/
+artifacts/
+TestResults/
+node_modules/

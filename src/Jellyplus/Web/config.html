@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html><head><title>Jelly+</title></head><body>
+<div id="JellyplusConfig" data-role="page" class="page type-interior pluginConfigurationPage">
+  <div data-role="content"><div class="content-primary">
+    <form id="JellyplusForm">
+      <h2>Jelly+</h2>
+      <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="jpSeasonal"><span>Saisonale Empfehlungen anzeigen</span></label></div>
+      <p>Weihnachten: 01.–31. Dezember. Halloween und Horror: 15. Oktober–01. November. Maßgeblich ist die Zeitzone des Servers.</p>
+      <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="jpShuffle"><span>Zufällig öffnet die Medienübersicht</span></label></div>
+      <p>Gilt für die Bibliotheks-Schaltfläche im Webclient und in LG webOS. Watch Together wird unter Profil → Wiedergabe freigegeben.</p>
+      <button is="emby-button" type="submit" class="raised button-submit block"><span>Speichern</span></button>
+    </form>
+  </div></div>
+  <script>
+    const jpId = 'd357e8be-6be8-46b5-bd30-15a530412cd9';
+    document.querySelector('#JellyplusConfig').addEventListener('pageshow', function () {
+      Dashboard.showLoadingMsg();
+      ApiClient.getPluginConfiguration(jpId).then(function (config) {
+        document.querySelector('#jpSeasonal').checked = config.SeasonalRecommendations;
+        document.querySelector('#jpShuffle').checked = config.ShuffleOpensDetails;
+      }).catch(function () { Dashboard.alert('Einstellungen konnten nicht geladen werden.'); }).finally(function () { Dashboard.hideLoadingMsg(); });
+    });
+    document.querySelector('#JellyplusForm').addEventListener('submit', function (event) {
+      event.preventDefault();
+      ApiClient.getPluginConfiguration(jpId).then(function (config) {
+        config.SeasonalRecommendations = document.querySelector('#jpSeasonal').checked;
+        config.ShuffleOpensDetails = document.querySelector('#jpShuffle').checked;
+        return ApiClient.updatePluginConfiguration(jpId, config);
+      }).then(Dashboard.processPluginConfigurationUpdateResult).catch(function () { Dashboard.alert('Speichern fehlgeschlagen.'); });
+    });
+  </script>
+</div></body></html>
