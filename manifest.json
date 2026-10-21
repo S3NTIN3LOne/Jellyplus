@@ -5,12 +5,12 @@
         "description":  "Shared playback progress, seasonal recommendations and a personal home screen for Jellyfin Web and LG webOS.",
         "versions":  [
                          {
-                             "changelog":  "Fix home-card hiding without a page reload, respect Watch Together opt-in, retry seasonal recommendations and support TV home containers.",
-                             "version":  "0.1.1.0",
-                             "checksum":  "e6738d565c50a7c1841c1b073f2654b5",
-                             "timestamp":  "2026-10-20T20:43:59Z",
+                             "changelog":  "Improve browser initialization, load ElegantFin seasonal effects using the local theme CSS, and place recommendations immediately before recently added media.",
+                             "version":  "0.1.2.0",
+                             "checksum":  "a0cfbb9e4c25921b6e5758de9e2ea2c5",
+                             "timestamp":  "2026-10-21T19:17:09Z",
                              "targetAbi":  "12.2.0.0",
-                             "sourceUrl":  "https://github.com/S3NTIN3LOne/Jellyplus/releases/download/v0.1.1.0/Jellyplus_0.1.1.0.zip"
+                             "sourceUrl":  "https://github.com/S3NTIN3LOne/Jellyplus/releases/download/v0.1.2.0/Jellyplus_0.1.2.0.zip"
                          }
                      ],
         "category":  "General",
