@@ -33,7 +33,7 @@ public sealed class WebTests
             var client = host.GetTestClient();
             var response = await client.GetAsync(baseUrl + "/web/index.html");
             var body = await response.Content.ReadAsStringAsync();
-            Assert.Contains("<script defer src=\"" + baseUrl + "/Jellyplus/client.js\"></script></body>", body);
+            Assert.Contains("<script defer src=\"" + baseUrl + "/Jellyplus/client.js?v=" + typeof(Plugin).Assembly.GetName().Version + "\"></script></body>", body);
             Assert.Equal(html, await File.ReadAllTextAsync(Path.Combine(path, "index.html")));
             Assert.Equal("no-store", response.Headers.CacheControl!.ToString());
             Assert.Equal("unchanged", await client.GetStringAsync(baseUrl + "/Videos/1/stream"));

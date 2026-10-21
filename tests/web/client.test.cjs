@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const source = fs.readFileSync('src/Jellyplus/Web/client.js', 'utf8');
 const wait = (ms = 200) => new Promise(resolve => setTimeout(resolve, ms));
 
-function fixture(markup, responses = {}) {
+function fixture(markup, responses = {}, configure) {
     const dom = new JSDOM('<html><head></head><body>' + markup + '</body></html>', { url: 'http://localhost/web/index.html#/home', runScripts: 'outside-only' });
     const calls = [];
     const w = dom.window;
@@ -21,6 +21,7 @@ function fixture(markup, responses = {}) {
         const result = typeof responses[path] === 'function' ? await responses[path](options) : responses[path];
         return { ok: true, json: async () => result || (path === 'Settings' ? { Enabled: true, SeasonalRecommendations: true, ShuffleOpensDetails: true, Hidden: [] } : {}) };
     };
+    if (configure) configure(w);
     w.eval(source);
     return { dom, w, calls };
 }
@@ -191,6 +192,65 @@ test('seasonal row supports TV home containers and retries transient failures', 
         const now = w.Date.now(); w.Date.now = () => now + 16000;
         w.document.body.appendChild(w.document.createElement('div')); await wait(400);
         assert.equal(attempts, 2);
-        assert.equal(w.document.querySelector('.homeSectionsContainer').firstChild.classList.contains('jp-season'), true);
+        assert.equal(w.document.querySelector('.homeSectionsContainer').lastChild.classList.contains('jp-season'), true);
+    } finally { dom.window.close(); }
+});
+
+test('browser startup discovers an API client that becomes available after initial rendering', async () => {
+    const { dom, w, calls } = fixture('<div id="languagePreferencesPage"><div class="settingsContainer"></div></div>', {}, w => {
+        const client = w.ApiClient; delete w.ApiClient;
+        setTimeout(() => { w.ApiClient = client; w.document.body.appendChild(w.document.createElement('div')); }, 250);
+    });
+    try {
+        await wait(700);
+        assert.ok(calls.find(c => c.path === 'Settings'));
+        assert.ok(w.document.querySelector('.jp-preferences'));
+    } finally { dom.window.close(); }
+});
+
+test('desktop loads the requested effects once while leaving CSS to the local theme', async () => {
+    const { dom, w } = fixture('', {}, w => w.document.documentElement.classList.add('layout-desktop'));
+    try {
+        await wait();
+        const script = w.document.querySelector('#jp-seasonal-effects');
+        assert.equal(script.src, 'https://cdn.jsdelivr.net/gh/S3NTIN3LOne/jellyfin-elegantfin-tv@v0.1.13/desktop/ElegantFin-seasonal.js');
+        const marker = w.document.querySelector('link[data-ef-seasonal-css]');
+        assert.ok(marker);
+        assert.equal(marker.hasAttribute('href'), false);
+        w.document.body.appendChild(w.document.createElement('div')); await wait();
+        assert.equal(w.document.querySelectorAll('#jp-seasonal-effects').length, 1);
+    } finally { dom.window.close(); }
+});
+
+test('desktop seasonal script is not loaded in TV layout', async () => {
+    const { dom, w } = fixture('', {}, w => w.document.documentElement.classList.add('layout-tv'));
+    try { await wait(); assert.equal(w.document.querySelector('#jp-seasonal-effects'), null); }
+    finally { dom.window.close(); }
+});
+
+test('recommendations follow next-up and resume immediately before desktop latest media', async () => {
+    const { dom, w } = fixture('<div id="homeTab"><div class="sections"><div id="libraries" class="verticalSection"></div><div id="resume" class="verticalSection"></div><div id="next" class="verticalSection"></div><div id="latest"><div class="verticalSection"><a href="#/movies?section=latest">Latest</a></div></div></div></div>', {
+        Seasonal: { Title: 'Halloween', Items: [{ Id: 'bbbb', Name: 'Film' }] }
+    });
+    try {
+        await wait(400);
+        const section = w.document.querySelector('.jp-season');
+        assert.equal(section.previousElementSibling.id, 'next');
+        assert.equal(section.nextElementSibling.id, 'latest');
+    } finally { dom.window.close(); }
+});
+
+test('TV recommendations reposition when latest library rows arrive after the recommendation response', async () => {
+    const { dom, w, calls } = fixture('<div class="homePage"><div class="homeSectionsContainer"><div class="verticalSection" id="resume"></div></div></div>', {
+        Seasonal: { Title: 'Halloween', Items: [{ Id: 'bbbb', Name: 'Film' }] }
+    });
+    try {
+        await wait(400);
+        const latest = w.document.createElement('div'); latest.id = 'latest';
+        latest.innerHTML = '<div class="verticalSection"><h2>Neu in Filme</h2><div class="itemsContainer"></div></div>';
+        const home = w.document.querySelector('.homeSectionsContainer'); home.insertBefore(latest, home.firstChild);
+        await wait(400);
+        assert.equal(w.document.querySelector('.jp-season').nextElementSibling.id, 'latest');
+        assert.equal(calls.filter(c => c.path === 'Seasonal').length, 1);
     } finally { dom.window.close(); }
 });

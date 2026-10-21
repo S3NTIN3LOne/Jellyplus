@@ -1,4 +1,4 @@
-/* Jelly+ for Jellyfin Web 12.2 (legacy desktop and TV layout). No external scripts. */
+/* Jelly+ for Jellyfin Web 12.2, desktop/mobile and TV layout. */
 (function () {
     'use strict';
     if (window.__jellyplus) return;
@@ -6,8 +6,12 @@
     var settings = null, user = null, pendingMenu = null, refreshing = false;
     var seasonKey = '', seasonLoading = false, observerQueued = false;
     var seasonRetryAt = 0, hiddenKey = '', hiddenLoading = false, hiddenResolved = [];
+    var settingsRetryAt = 0, effectsRetryAt = 0;
     var connected = function (node) { return node && document.documentElement.contains(node); };
-    var api = function () { return window.ApiClient; };
+    var api = function () {
+        return window.ApiClient || (window.connectionManager && typeof window.connectionManager.currentApiClient === 'function'
+            ? window.connectionManager.currentApiClient() : null);
+    };
     var idKey = function (id) { return String(id || '').replace(/-/g, '').toLowerCase(); };
     var normalize = function (value) {
         if (Array.isArray(value)) return value.map(normalize);
@@ -24,7 +28,7 @@
         var response = await fetch(current.getUrl('Jellyplus/' + path), {
             method: method || 'GET',
             headers: {
-                Authorization: 'MediaBrowser Client="Jellyplus", Device="Web", DeviceId="' + (current.deviceId ? current.deviceId() : 'jellyplus-web') + '", Version="0.1.1", Token="' + current.accessToken() + '"',
+                Authorization: 'MediaBrowser Client="Jellyplus", Device="Web", DeviceId="' + (current.deviceId ? current.deviceId() : 'jellyplus-web') + '", Version="0.1.2", Token="' + current.accessToken() + '"',
                 'Content-Type': 'application/json'
             },
             body: body === undefined ? undefined : JSON.stringify(body),
@@ -90,6 +94,7 @@
         if (refreshing) return;
         var current = api();
         var nextUser = current && current.getCurrentUserId();
+        if (nextUser === user && Date.now() < settingsRetryAt) return;
         if (!nextUser) { settings = null; user = null; seasonKey = ''; document.querySelectorAll('.jp-owned').forEach(function (n) { n.remove(); }); return; }
         if (user !== nextUser) {
             settings = null; seasonKey = ''; seasonRetryAt = 0; hiddenKey = ''; pendingMenu = null;
@@ -97,12 +102,13 @@
         }
         user = nextUser;
         refreshing = true;
+        settingsRetryAt = Date.now() + 1000;
         try {
             var loaded = await request('Settings');
             if (api().getCurrentUserId() === nextUser) settings = loaded;
             if (settings && !settings.enabled) document.querySelectorAll('.jp-watch').forEach(function (n) { n.remove(); });
             if (settings && !settings.seasonalRecommendations) document.querySelectorAll('.jp-season').forEach(function (n) { n.remove(); });
-        } catch (error) { settings = null; console.warn('[Jelly+]', error); }
+        } catch (error) { settings = null; settingsRetryAt = Date.now() + 5000; console.warn('[Jelly+]', error); }
         finally { refreshing = false; schedule(); }
     }
     function summary(list) {
@@ -138,14 +144,14 @@
     }
     async function hide(item) {
         await request('Hidden/' + item, 'POST');
-        hiddenKey = '';
+        hiddenKey = ''; settingsRetryAt = 0;
         await refresh();
         await applyHidden();
     }
     async function restore() {
         var items = await request('Hidden');
         var selected = await choose('Ausgeblendete Medien', 'Serie oder Film wieder auf der Startseite zulassen.', items.map(function (i) { return { label: i.name, value: i.id }; }));
-        if (selected) { await request('Hidden/' + selected, 'DELETE'); hiddenKey = ''; await refresh(); await applyHidden(); }
+        if (selected) { await request('Hidden/' + selected, 'DELETE'); hiddenKey = ''; settingsRetryAt = 0; await refresh(); await applyHidden(); }
     }
     async function applyHidden() {
         if (!settings || hiddenLoading) return;
@@ -187,7 +193,7 @@
         });
     }
     function preferences() {
-        var container = document.querySelector('#languagePreferencesPage .settingsContainer');
+        var container = document.querySelector('#languagePreferencesPage .settingsContainer, #languagePreferencesPage form, [data-jellyplus-playback-settings]');
         if (!container || container.querySelector('.jp-preferences')) return;
         var section = element('section', '', 'jp-preferences jp-owned');
         section.appendChild(element('h2', 'Jelly+'));
@@ -196,7 +202,7 @@
         label.appendChild(toggle); label.appendChild(document.createTextNode(' Watch Together'));
         toggle.addEventListener('change', async function () {
             toggle.disabled = true;
-            try { await request('Preferences', 'PUT', { enabled: toggle.checked }); await refresh(); }
+            try { await request('Preferences', 'PUT', { enabled: toggle.checked }); settingsRetryAt = 0; await refresh(); }
             catch (error) { toggle.checked = !toggle.checked; showError(error); }
             finally { toggle.disabled = false; }
         });
@@ -204,6 +210,42 @@
         section.appendChild(element('p', 'Andere freigegebene Profile können dich pro Film oder Serie verknüpfen. Ausschalten entfernt deine Verknüpfungen.'));
         section.appendChild(button('Ausgeblendete Medien verwalten', restore));
         container.appendChild(section);
+    }
+    function placeSeasonal(home, section) {
+        // Desktop links explicitly identify the latest feed; TV renders nested
+        // library sections inside the same section slot, without those links.
+        var link = home.querySelector('a[href*="section=latest"], a[href*="section%3Dlatest"], a[href*="/latest"]');
+        var latest = link;
+        while (latest && latest.parentNode !== home) latest = latest.parentElement;
+        if (!latest) {
+            latest = Array.prototype.find.call(home.children, function (slot) {
+                return slot !== section && (slot.matches('[data-section="latest"], [data-section="latestmedia"]')
+                    || (!slot.classList.contains('verticalSection') && slot.querySelector('.verticalSection .itemsContainer:not([data-monitor])')));
+            });
+        }
+        // Without a latest feed, preserve the user's preceding home sections.
+        if (latest) {
+            if (section.nextElementSibling !== latest) home.insertBefore(section, latest);
+        } else if (section.parentNode !== home) home.appendChild(section);
+    }
+    function loadSeasonalEffects() {
+        var root = document.documentElement;
+        if (!root.matches('.layout-desktop, .layout-mobile') || root.classList.contains('layout-tv')
+            || window.ElegantFinSeasonal || document.querySelector('#jp-seasonal-effects') || Date.now() < effectsRetryAt) return;
+        var source = 'https://cdn.jsdelivr.net/gh/S3NTIN3LOne/jellyfin-elegantfin-tv@v0.1.13/desktop/ElegantFin-seasonal.js';
+        if (Array.prototype.some.call(document.scripts, function (script) { return script.src === source; })) return;
+        // The local theme already supplies the CSS. This is the opt-out marker
+        // understood by ElegantFin-seasonal.js; it has no URL and loads no CSS.
+        if (!document.querySelector('link[data-ef-seasonal-css]')) {
+            var marker = document.createElement('link');
+            marker.setAttribute('data-ef-seasonal-css', '');
+            marker.setAttribute('data-jp-theme-css', '');
+            document.head.appendChild(marker);
+        }
+        var script = document.createElement('script');
+        script.id = 'jp-seasonal-effects'; script.src = source; script.async = true;
+        script.onerror = function () { script.remove(); effectsRetryAt = Date.now() + 60000; console.warn('[Jelly+] Seasonal effects could not be loaded.'); };
+        document.head.appendChild(script);
     }
     function captureMenu(target) {
         var card = target && target.closest && target.closest('[data-id][data-type]');
@@ -252,14 +294,17 @@
         var hidden = settings.hidden.some(function (id) { return idKey(id) === idKey(item); });
         group.appendChild(button(hidden ? 'Auf Startseite wieder anzeigen' : 'Aus „Als nächstes“ und „Weiterschauen“ ausblenden', async function () {
             await closeNative();
-            if (hidden) { await request('Hidden/' + item, 'DELETE'); hiddenKey = ''; await refresh(); return applyHidden(); }
+            if (hidden) { await request('Hidden/' + item, 'DELETE'); hiddenKey = ''; settingsRetryAt = 0; await refresh(); return applyHidden(); }
             return hide(item);
         }));
         nativeItem.parentNode.appendChild(group);
     }
     async function seasonal() {
         var home = document.querySelector('#homeTab .sections, #homeTab.homeSectionsContainer, .homePage .homeSectionsContainer, .homePage .sections');
-        if (!home || !settings.seasonalRecommendations || seasonLoading || home.querySelector('.jp-season')) return;
+        if (!home || !settings.seasonalRecommendations) return;
+        var existing = home.querySelector('.jp-season');
+        if (existing) { placeSeasonal(home, existing); return; }
+        if (seasonLoading) return;
         var key = user + ':' + new Date().toDateString();
         if (Date.now() < seasonRetryAt && seasonKey === key) return;
         var requestUser = user;
@@ -286,7 +331,7 @@
                 if (next) { e.preventDefault(); e.stopPropagation(); next.focus(); next.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
             });
             section.appendChild(row);
-            home.insertBefore(section, home.firstChild);
+            placeSeasonal(home, section);
             seasonKey = ''; seasonRetryAt = 0;
         } catch (error) { console.warn('[Jelly+] Saisonale Empfehlungen:', error); seasonKey = key; seasonRetryAt = Date.now() + 15000; }
         finally { seasonLoading = false; }
@@ -309,7 +354,9 @@
         observerQueued = true;
         setTimeout(function () {
             observerQueued = false;
-            if (!settings || !api() || api().getCurrentUserId() !== user) return;
+            loadSeasonalEffects();
+            if (!api()) return;
+            if (!settings || api().getCurrentUserId() !== user) { refresh(); return; }
             preferences(); extendMenu(); seasonal(); applyHidden();
         }, 100);
     }
@@ -336,6 +383,12 @@
         new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
         window.addEventListener('hashchange', function () { pendingMenu = null; seasonKey = ''; refresh(); });
         window.addEventListener('focus', refresh);
+        document.addEventListener('viewshow', function () { refresh(); schedule(); }, true);
+        document.addEventListener('pageshow', function () { refresh(); schedule(); }, true);
+        var bootstrap = setInterval(function () {
+            schedule();
+            if (settings) clearInterval(bootstrap);
+        }, 1000);
         setInterval(refresh, 15000);
         refresh();
     }

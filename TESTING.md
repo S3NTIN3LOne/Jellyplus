@@ -1,5 +1,12 @@
 # Validierung
 
+## Korrekturen in 0.1.2.0
+
+- 21 .NET-Tests und 15 DOM-Tests: verzögert verfügbarer API-Client, versionsabhängiger Script-Verweis, einmaliges Laden des angeforderten Seasonal-Scripts ohne CSS-Nachladen sowie korrekte Zeilenposition bei nachträglich aufgebauten Desktop- und TV-Startseiten.
+- Mit Jellyfin 12.2 und Edge am 21.10.2026 in den Layouts `desktop`, `desktop-legacy`, `mobile` und `tv` geprüft: Profileinstellung sichtbar, Watch-Together-Menü sichtbar, Empfehlungen vor dem ersten Bereich für zuletzt hinzugefügte Medien, keine JavaScript-Seitenfehler.
+- Die unveränderte, von der angegebenen jsDelivr-URL geladene v0.1.13-Datei wurde im Browsertest als Netzwerkantwort bereitgestellt: Desktop und Mobil initialisieren `ElegantFinSeasonal`, ohne einen zusätzlichen Effekt-CSS-Link zu erstellen. Im TV-Layout wird das Desktop-Script nicht geladen.
+- Die konkrete Browseradresse und Oberfläche des gemeldeten Ausfalls sind noch nicht bekannt. Die Tests bestätigen die genannten Layouts der serverseitig ausgelieferten Weboberfläche.
+
 ## Korrekturen in 0.1.1.0
 
 - 21 .NET-Tests und 10 DOM-Tests bestehen, einschließlich profilabhängiger Menüs, verborgen bleibender Karten nach Cache-Neudarstellung, Berechtigungen der Kartenauflösung und Wiederholung fehlgeschlagener saisonaler Anfragen.

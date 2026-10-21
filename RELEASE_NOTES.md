@@ -1,10 +1,10 @@
-Jelly+ 0.1.1.0 für Jellyfin 12.2 – Korrekturen für Startseite und TV-Bedienung.
+Jelly+ 0.1.2.0 für Jellyfin 12.2 – Browser-Einbindung und saisonale Erweiterungen.
 
-- Ausblenden aktualisiert die Karten nach erfolgreichem Speichern, ohne die Web-App neu zu laden. Auch zwischengespeicherte Karten bleiben verborgen.
-- Watch Together erscheint im Medienmenü nur bei aktivierter Profilfreigabe.
-- Saisonale Empfehlungen stehen oben auf der Startseite, unterstützen weitere TV-Container und versuchen fehlgeschlagene Anfragen erneut. Die Serverabfrage lädt nur die benötigten Metadaten.
-- 21 .NET-Tests und 10 Oberflächentests erfolgreich; Ausblenden ohne Dokumentneustart und beide UI-Korrekturen zusätzlich im TV-Layout eines echten Browsers geprüft.
+- Browser-Einbindung wartet auf den API-Client und reagiert auf nachgeladene Ansichten. Der Script-Verweis enthält die Plugin-Version, damit alte Browser-Caches nicht die vorherige Erweiterung behalten.
+- ElegantFin-seasonal.js wird in Version v0.1.13 für Desktop und Mobil eingebunden. Das vorhandene Theme liefert die CSS-Effekte; es wird kein zusätzliches Effekt-CSS geladen.
+- Saisonale Empfehlungen stehen direkt vor den kürzlich hinzugefügten Medien und werden auch bei verspätetem Aufbau der Startseite richtig einsortiert.
+- 21 .NET-Tests und 15 Oberflächentests erfolgreich; Profileinstellungen, Medienmenü und Zeilenposition zusätzlich im echten Browser mit Desktop-, klassischer Desktop-, Mobil- und TV-Layout geprüft. Das angegebene Seasonal-Script wurde dabei in unveränderter Form ausgeführt.
 
-Nach dem Update den Jellyfin-Container neu starten und die LG-App vollständig schließen und erneut öffnen. Auf physischer LG-Hardware konnte die gemeldete Absturzursache noch nicht abschließend bestätigt werden.
+Nach dem Update den Jellyfin-Container neu starten, die Browserseite neu laden und die LG-App vollständig schließen und erneut öffnen.
 
-Installationsanleitung und Manifest stehen im Repository. Die Vorschau zielt auf den klassischen Webclient und dessen LG-webOS-TV-Layout. Ein Test auf physischer LG-Hardware steht noch aus; die experimentelle moderne Weboberfläche ist nicht unterstützt. Details und Prüfschritte: TESTING.md.
+Installationsanleitung und Manifest stehen im Repository. Die Browser-Erweiterung setzt die vom Jellyfin-Server ausgelieferte Weboberfläche voraus. Ein Test auf physischer LG-Hardware steht noch aus. Details und Prüfschritte: TESTING.md.

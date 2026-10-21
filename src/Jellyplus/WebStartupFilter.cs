@@ -40,7 +40,7 @@ public sealed class WebStartupFilter(IServerConfigurationManager configuration) 
                 content = await File.ReadAllTextAsync(index, context.RequestAborted);
                 var marker = content.LastIndexOf("</body>", StringComparison.OrdinalIgnoreCase);
                 if (marker < 0) { await following(context); return; }
-                var source = HtmlEncoder.Default.Encode(prefix + "/Jellyplus/client.js");
+                var source = HtmlEncoder.Default.Encode(prefix + "/Jellyplus/client.js?v=" + typeof(Plugin).Assembly.GetName().Version);
                 content = content.Insert(marker, $"<script defer src=\"{source}\"></script>");
                 context.Response.ContentType = "text/html; charset=utf-8";
             }
