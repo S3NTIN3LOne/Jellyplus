@@ -1,5 +1,12 @@
 # Validierung
 
+## Korrekturen in 0.1.3.0
+
+- 21 .NET-Tests und 16 DOM-Tests prüfen unter anderem die Delegation an Jellyfins Kartenrenderer und Action Sheets, native Menüstruktur und Checkbox, Einbindung innerhalb des Wiedergabeformulars sowie die dynamische Übernahme des CSS-`order`-Wertes.
+- Mit Jellyfin 12.2 und Edge: 14 Testfilme als native Karten, native Links-/Rechts-Pfeile, Medienmenüpunkte ohne eigene Raised-Buttons und erfolgreiche native Profilauswahl.
+- Standarddesign und der von `jellyfin-elegantfin-tv` v0.1.13 bezogene ElegantFin-Desktopstil wurden visuell geprüft. Eine zusätzliche CSS-Sortierung mit Next Up vor den zuletzt hinzugefügten Medien hält auch die saisonale Zeile nach Next Up und direkt vor den zuletzt hinzugefügten Medien.
+- Die lokale Testbibliothek enthält künstliche Filme ohne Poster. Die Screenshots dienen der Prüfung von Kartenmaßen, Steuerelementen, Formularbreite und Menüdarstellung.
+
 ## Korrekturen in 0.1.2.0
 
 - 21 .NET-Tests und 15 DOM-Tests: verzögert verfügbarer API-Client, versionsabhängiger Script-Verweis, einmaliges Laden des angeforderten Seasonal-Scripts ohne CSS-Nachladen sowie korrekte Zeilenposition bei nachträglich aufgebauten Desktop- und TV-Startseiten.

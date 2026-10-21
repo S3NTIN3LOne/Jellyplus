@@ -9,11 +9,36 @@ function fixture(markup, responses = {}, configure) {
     const dom = new JSDOM('<html><head></head><body>' + markup + '</body></html>', { url: 'http://localhost/web/index.html#/home', runScripts: 'outside-only' });
     const calls = [];
     const w = dom.window;
+    w.document.querySelectorAll('.settingsContainer').forEach(n => {
+        if (!n.querySelector('form')) n.innerHTML = '<form><button class="btnSave" type="submit">Save</button></form>';
+    });
+    const nativeCalls = [];
+    const cards = { getCardsHtml(options) {
+        nativeCalls.push({type:'cards',options});
+        return options.items.map(item => {
+            const card=w.document.createElement('a');card.className='card overflowPortrait';card.dataset.id=item.Id;card.dataset.type='Movie';
+            card.href='#/details?id='+item.Id;const img=w.document.createElement('img');card.appendChild(img);
+            const text=w.document.createElement('span');text.className='cardText';text.textContent=item.Name;card.appendChild(text);return card.outerHTML;
+        }).join('');
+    }};
+    const actions = { show(options) {
+        nativeCalls.push({type:'actions',options});
+        return new Promise((resolve,reject)=>{
+            const sheet=w.document.createElement('div');sheet.className='native-sheet actionSheetContent';sheet.setAttribute('role','dialog');
+            const title=w.document.createElement('h2');title.textContent=options.title;sheet.appendChild(title);
+            options.items.forEach(item=>{const b=w.document.createElement('button');b.className='actionSheetMenuItem';b.textContent=item.name;b.onclick=()=>{sheet.remove();resolve(item.id)};sheet.appendChild(b)});
+            const cancel=w.document.createElement('button');cancel.className='btnCloseActionSheet';cancel.textContent='Abbrechen';
+            cancel.onclick=()=>{sheet.remove();reject(new Error('ActionSheet closed without resolving'))};sheet.appendChild(cancel);w.document.body.appendChild(sheet);
+        });
+    }};
+    const requireNative = id => id==='cards'?{default:cards}:{default:actions};
+    requireNative.m={cards:function(){/* getCardsHtml: */},actions:function(){/* ActionSheet closed without resolving */}};
+    w.webpackChunk={push:chunk=>chunk[2](requireNative)};
     w.ApiClient = {
         getCurrentUserId: () => 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', accessToken: () => 'test-token', serverId: () => 'server',
         getUrl: path => 'http://localhost/' + path,
         getItem: async () => ({ CollectionType: 'movies' }),
-        getItems: async () => ({ Items: [{ Id: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' }] })
+        getItems: async (_user,options) => ({ Items: options.Ids ? options.Ids.split(',').map(id => ({Id:id, Name:responses.Seasonal?.Items?.find(i=>i.Id===id)?.Name || 'Test film'})) : [{ Id: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' }] })
     };
     w.fetch = async (url, options) => {
         const path = url.replace('http://localhost/Jellyplus/', '');
@@ -23,14 +48,14 @@ function fixture(markup, responses = {}, configure) {
     };
     if (configure) configure(w);
     w.eval(source);
-    return { dom, w, calls };
+    return { dom, w, calls, nativeCalls };
 }
 
 test('adds a profile preference and stores opt-in through an authenticated request', async () => {
     const { dom, w, calls } = fixture('<div id="languagePreferencesPage"><div class="settingsContainer"></div></div>');
     try {
         await wait();
-        const input = w.document.querySelector('.jp-toggle input');
+        const input = w.document.querySelector('.jp-watch-toggle');
         assert.equal(input.checked, true);
         input.checked = false;
         input.dispatchEvent(new w.Event('change'));
@@ -40,6 +65,10 @@ test('adds a profile preference and stores opt-in through an authenticated reque
         assert.match(request.options.headers.Authorization, /Token="test-token"/);
         assert.equal(JSON.parse(request.options.body).enabled, false);
         assert.equal(w.document.querySelectorAll('.jp-preferences').length, 1);
+        assert.ok(input.matches('[is="emby-checkbox"]'));
+        assert.ok(input.closest('form'));
+        assert.ok(input.closest('.checkboxContainer-withDescription'));
+        assert.equal(input.closest('.jp-preferences').nextElementSibling.className,'btnSave');
     } finally { dom.window.close(); }
 });
 
@@ -57,21 +86,40 @@ test('extends the native three-dot menu without replacing its actions', async ()
         assert.match(sheet.textContent, /Watch Together/);
         assert.match(sheet.textContent, /ausblenden/);
         assert.equal(sheet.querySelectorAll('.jp-menu').length, 1);
+        assert.equal(sheet.querySelectorAll('.jp-menu .actionSheetMenuItem').length,2);
+        assert.equal(sheet.querySelectorAll('.jp-menu .raised').length,0);
+        assert.equal(sheet.querySelector('.jp-menu .material-icons').textContent,'');
     } finally { dom.window.close(); }
 });
 
-test('seasonal metadata is rendered as text and cards navigate to details', async () => {
-    const { dom, w } = fixture('<div id="homeTab"><div class="sections"></div></div>', {
+test('seasonal metadata uses the native card builder and scroller', async () => {
+    const { dom, w, nativeCalls } = fixture('<div id="homeTab"><div class="sections"></div></div>', {
         Seasonal: { Title: 'Halloween', Items: [{ Id: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', Name: '<img src=x onerror=alert(1)>' }] }
     });
     try {
         await wait(400);
-        const card = w.document.querySelector('.jp-poster');
+        const card = w.document.querySelector('.jp-season .card');
         assert.ok(card);
         assert.match(card.href, /details\?id=/);
         assert.equal(card.querySelectorAll('img').length, 1);
         assert.equal(card.querySelector('span').textContent, '<img src=x onerror=alert(1)>');
+        assert.ok(w.document.querySelector('.jp-season [is="emby-scroller"] .scrollSlider[is="emby-itemscontainer"]'));
+        assert.equal(nativeCalls.find(c=>c.type==='cards').options.shape,'overflowPortrait');
+        assert.equal(w.document.querySelector('.jp-posters'),null);
     } finally { dom.window.close(); }
+});
+
+test('recommendations match latest-media CSS order and react to custom layout changes', async () => {
+    const { dom,w }=fixture('<style>.sections{display:flex;flex-direction:column}#live{order:1}#next{order:2}#latest{order:8}</style><div id="homeTab"><div class="sections"><div class="verticalSection" id="live">Live-TV</div><div class="verticalSection" id="next">Next Up</div><div id="latest"><a href="#/movies?section=latest">Latest</a></div></div></div>',{
+        Seasonal:{Title:'Halloween',Items:[{Id:'bbbb',Name:'Film'}]}
+    });
+    try{
+        await wait(400);const section=w.document.querySelector('.jp-season');
+        assert.equal(section.style.order,'8');assert.equal(section.nextElementSibling.id,'latest');
+        assert.equal(section.style.getPropertyPriority('order'),'important');
+        w.document.querySelector('#latest').style.order='12';await wait(400);
+        assert.equal(section.style.order,'12');assert.equal(section.nextElementSibling.id,'latest');
+    }finally{dom.window.close()}
 });
 
 test('shuffle opens details and blocks the original playback handler', async () => {
@@ -122,22 +170,22 @@ test('closes a native menu without a close button before opening profile selecti
         w.document.body.appendChild(container);
         await wait(); container.querySelector('.jp-menu button').click(); await wait();
         assert.equal(w.document.querySelector('.dialogContainer'), null);
-        assert.match(w.document.querySelector('.jp-dialog').textContent, /Partner/);
+        assert.match(w.document.querySelector('.native-sheet').textContent, /Partner/);
     } finally { dom.window.close(); }
 });
 
-test('remote arrow keys and back keep dialogs operable', async () => {
-    const { dom, w } = fixture('<div id="languagePreferencesPage"><div class="settingsContainer"></div></div>', {
+test('hidden media selection uses Jellyfin action sheets and supports native cancellation', async () => {
+    const { dom, w, nativeCalls } = fixture('<div id="languagePreferencesPage"><div class="settingsContainer"></div></div>', {
         Hidden: [{ Id: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', Name: 'Testfilm' }]
     });
     try {
         await wait(); w.document.querySelector('.jp-preferences button').click(); await wait();
-        const buttons = w.document.querySelectorAll('.jp-dialog button');
-        assert.equal(w.document.activeElement, buttons[0]);
-        w.document.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
-        assert.equal(w.document.activeElement, buttons[1]);
-        w.document.dispatchEvent(new w.KeyboardEvent('keydown', { keyCode: 461, bubbles: true }));
+        assert.equal(nativeCalls.at(-1).type,'actions');
+        assert.equal(nativeCalls.at(-1).options.title,'Ausgeblendete Medien');
+        assert.equal(nativeCalls.at(-1).options.items[0].name,'Testfilm');
+        w.document.querySelector('.native-sheet .btnCloseActionSheet').click();
         await wait();
+        assert.equal(w.document.querySelector('.native-sheet'), null);
         assert.equal(w.document.querySelector('.jp-overlay'), null);
     } finally { dom.window.close(); }
 });

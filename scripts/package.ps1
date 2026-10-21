@@ -1,5 +1,5 @@
 param(
-    [string]$Version = '0.1.2.0',
+    [string]$Version = '0.1.3.0',
     [string]$Repository = 'S3NTIN3LOne/Jellyplus'
 )
 $ErrorActionPreference = 'Stop'
@@ -24,7 +24,7 @@ $manifest = @(@{
     category = 'General'
     versions = @(@{
         version = $Version
-        changelog = 'Improve browser initialization, load ElegantFin seasonal effects using the local theme CSS, and place recommendations immediately before recently added media.'
+        changelog = 'Use native Jellyfin cards, scroller arrows, action sheets and playback controls; follow the latest-media CSS order in custom home layouts.'
         targetAbi = '12.2.0.0'
         sourceUrl = "https://github.com/$Repository/releases/download/v$Version/$zipName"
         checksum = (Get-FileHash -LiteralPath $zip -Algorithm MD5).Hash.ToLowerInvariant()

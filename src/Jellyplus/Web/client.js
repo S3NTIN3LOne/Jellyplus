@@ -7,6 +7,28 @@
     var seasonKey = '', seasonLoading = false, observerQueued = false;
     var seasonRetryAt = 0, hiddenKey = '', hiddenLoading = false, hiddenResolved = [];
     var settingsRetryAt = 0, effectsRetryAt = 0;
+    var nativeRequire = null, nativeModules = {};
+    function nativeComponent(name) {
+        if (nativeModules[name]) return nativeModules[name];
+        if (!nativeRequire && window.webpackChunk && typeof window.webpackChunk.push === 'function') {
+            // Jellyfin 12.2 bundles its UI modules. Reuse their existing exports;
+            // no bundles or files are rewritten and no module numbers are fixed.
+            window.webpackChunk.push([['jellyplus-native-ui'], {}, function (require) { nativeRequire = require; }]);
+        }
+        if (!nativeRequire || !nativeRequire.m) return null;
+        var marker = name === 'cards' ? 'getCardsHtml:' : 'ActionSheet closed without resolving';
+        var ids = Object.keys(nativeRequire.m);
+        for (var i = 0; i < ids.length; i++) {
+            if (String(nativeRequire.m[ids[i]]).indexOf(marker) < 0) continue;
+            var exports = nativeRequire(ids[i]);
+            var candidates = [exports].concat(Object.keys(exports).map(function (key) { return exports[key]; }));
+            var component = candidates.find(function (value) {
+                return value && (name === 'cards' ? typeof value.getCardsHtml === 'function' : typeof value.show === 'function');
+            });
+            if (component) { nativeModules[name] = component; return component; }
+        }
+        return null;
+    }
     var connected = function (node) { return node && document.documentElement.contains(node); };
     var api = function () {
         return window.ApiClient || (window.connectionManager && typeof window.connectionManager.currentApiClient === 'function'
@@ -28,7 +50,7 @@
         var response = await fetch(current.getUrl('Jellyplus/' + path), {
             method: method || 'GET',
             headers: {
-                Authorization: 'MediaBrowser Client="Jellyplus", Device="Web", DeviceId="' + (current.deviceId ? current.deviceId() : 'jellyplus-web') + '", Version="0.1.2", Token="' + current.accessToken() + '"',
+                Authorization: 'MediaBrowser Client="Jellyplus", Device="Web", DeviceId="' + (current.deviceId ? current.deviceId() : 'jellyplus-web') + '", Version="0.1.3", Token="' + current.accessToken() + '"',
                 'Content-Type': 'application/json'
             },
             body: body === undefined ? undefined : JSON.stringify(body),
@@ -45,46 +67,27 @@
         return node;
     }
     function button(text, action) {
-        var node = element('button', text, 'emby-button raised jp-button');
-        node.type = 'button';
+        var template = document.createElement('div');
+        template.innerHTML = '<button is="emby-button" type="button" class="raised block"><span></span></button>';
+        var node = template.firstElementChild;
+        node.querySelector('span').textContent = text;
         node.addEventListener('click', function (e) {
             e.preventDefault(); e.stopPropagation();
             Promise.resolve().then(action).catch(showError);
         });
         return node;
     }
-    function choose(title, description, choices) {
-        return new Promise(function (resolve) {
-            var previous = document.activeElement;
-            var overlay = element('div', '', 'jp-overlay');
-            var panel = element('div', '', 'jp-dialog');
-            panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'true');
-            panel.setAttribute('aria-label', title);
-            panel.appendChild(element('h2', title));
-            if (description) panel.appendChild(element('p', description));
-            function close(value) {
-                document.removeEventListener('keydown', keys, true);
-                overlay.remove();
-                if (connected(previous)) previous.focus();
-                resolve(value);
-            }
-            choices.concat([{ label: 'Schließen', value: null }]).forEach(function (choice) {
-                panel.appendChild(button(choice.label, function () { close(choice.value); }));
-            });
-            function keys(e) {
-                var buttons = Array.prototype.slice.call(panel.querySelectorAll('button'));
-                var index = buttons.indexOf(document.activeElement);
-                if (e.key === 'Escape' || e.key === 'BrowserBack' || e.keyCode === 461) { e.preventDefault(); e.stopImmediatePropagation(); close(null); }
-                else if (['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft', 'Tab'].indexOf(e.key) >= 0) {
-                    e.preventDefault(); e.stopImmediatePropagation();
-                    var delta = e.key === 'ArrowUp' || e.key === 'ArrowLeft' || (e.key === 'Tab' && e.shiftKey) ? -1 : 1;
-                    buttons[(index + delta + buttons.length) % buttons.length].focus();
-                }
-            }
-            document.addEventListener('keydown', keys, true);
-            overlay.appendChild(panel); document.body.appendChild(overlay);
-            panel.querySelector('button').focus();
-        });
+    async function choose(title, description, choices) {
+        var sheet = nativeComponent('actions');
+        if (!sheet) throw new Error('Jellyfins Menükomponente ist noch nicht verfügbar.');
+        try {
+            var id = await sheet.show({ title: title, text: description, showCancel: true,
+                items: choices.map(function (choice, index) { return { id: String(index), name: choice.label }; }) });
+            return choices[Number(id)] ? choices[Number(id)].value : null;
+        } catch (error) {
+            if (error && /closed without resolving/i.test(error.message)) return null;
+            throw error;
+        }
     }
     function showError(error) { return choose('Jelly+', error.message || String(error), []); }
     function details(id) {
@@ -195,21 +198,23 @@
     function preferences() {
         var container = document.querySelector('#languagePreferencesPage .settingsContainer, #languagePreferencesPage form, [data-jellyplus-playback-settings]');
         if (!container || container.querySelector('.jp-preferences')) return;
-        var section = element('section', '', 'jp-preferences jp-owned');
-        section.appendChild(element('h2', 'Jelly+'));
-        var label = element('label', '', 'jp-toggle');
-        var toggle = document.createElement('input'); toggle.type = 'checkbox'; toggle.checked = settings.enabled;
-        label.appendChild(toggle); label.appendChild(document.createTextNode(' Watch Together'));
+        var form = container.matches('form') ? container : container.querySelector('form');
+        if (!form) return;
+        var section = element('div', '', 'verticalSection verticalSection-extrabottompadding jp-preferences jp-owned');
+        section.innerHTML = '<h2 class="sectionTitle">Jelly+</h2><div class="checkboxContainer checkboxContainer-withDescription">' +
+            '<label><input type="checkbox" is="emby-checkbox" class="jp-watch-toggle"><span>Watch Together</span></label>' +
+            '<div class="fieldDescription checkboxFieldDescription">Andere freigegebene Profile können dich pro Film oder Serie verknüpfen. Ausschalten entfernt deine Verknüpfungen.</div></div>';
+        var toggle = section.querySelector('input'); toggle.checked = settings.enabled;
         toggle.addEventListener('change', async function () {
             toggle.disabled = true;
             try { await request('Preferences', 'PUT', { enabled: toggle.checked }); settingsRetryAt = 0; await refresh(); }
             catch (error) { toggle.checked = !toggle.checked; showError(error); }
             finally { toggle.disabled = false; }
         });
-        section.appendChild(label);
-        section.appendChild(element('p', 'Andere freigegebene Profile können dich pro Film oder Serie verknüpfen. Ausschalten entfernt deine Verknüpfungen.'));
         section.appendChild(button('Ausgeblendete Medien verwalten', restore));
-        container.appendChild(section);
+        var submit = form.querySelector('button[type="submit"], .btnSave');
+        while (submit && submit.parentNode !== form) submit = submit.parentElement;
+        form.insertBefore(section, submit);
     }
     function placeSeasonal(home, section) {
         // Desktop links explicitly identify the latest feed; TV renders nested
@@ -226,6 +231,9 @@
         // Without a latest feed, preserve the user's preceding home sections.
         if (latest) {
             if (section.nextElementSibling !== latest) home.insertBefore(section, latest);
+            var order = window.getComputedStyle(latest).order;
+            if (section.style.getPropertyValue('order') !== order || section.style.getPropertyPriority('order') !== 'important')
+                section.style.setProperty('order', order, 'important');
         } else if (section.parentNode !== home) home.appendChild(section);
     }
     function loadSeasonalEffects() {
@@ -283,17 +291,31 @@
                 }
             });
         }
+        function menuEntry(text, icon, action) {
+            var entry = nativeItem.cloneNode(true);
+            entry.removeAttribute('id'); entry.removeAttribute('data-id'); entry.removeAttribute('autofocus');
+            var label = entry.querySelector('.actionSheetItemText, .listItemBodyText');
+            if (!label) { entry.textContent = ''; label = element('div', '', 'listItemBody actionsheetListItemBody'); entry.appendChild(label); }
+            label.textContent = text;
+            var image = entry.querySelector('.actionsheetMenuItemIcon, .listItemIcon');
+            if (!image) { image = document.createElement('span'); entry.insertBefore(image, entry.firstChild); }
+            image.className = 'actionsheetMenuItemIcon listItemIcon listItemIcon-transparent material-icons ' + icon;
+            image.textContent = ''; image.setAttribute('aria-hidden', 'true');
+            entry.addEventListener('click', function (event) {
+                event.preventDefault(); event.stopPropagation();
+                Promise.resolve().then(closeNative).then(action).catch(showError);
+            });
+            return entry;
+        }
         if (settings.enabled) {
-            var watchButton = button('Watch Together', async function () {
-                await closeNative();
+            var watchButton = menuEntry('Watch Together', 'groups', async function () {
                 if (settings && settings.enabled) return watch(item);
             });
             watchButton.classList.add('jp-watch');
             group.appendChild(watchButton);
         }
         var hidden = settings.hidden.some(function (id) { return idKey(id) === idKey(item); });
-        group.appendChild(button(hidden ? 'Auf Startseite wieder anzeigen' : 'Aus „Als nächstes“ und „Weiterschauen“ ausblenden', async function () {
-            await closeNative();
+        group.appendChild(menuEntry(hidden ? 'Auf Startseite wieder anzeigen' : 'Aus „Als nächstes“ und „Weiterschauen“ ausblenden', hidden ? 'visibility' : 'visibility_off', async function () {
             if (hidden) { await request('Hidden/' + item, 'DELETE'); hiddenKey = ''; settingsRetryAt = 0; await refresh(); return applyHidden(); }
             return hide(item);
         }));
@@ -307,31 +329,39 @@
         if (seasonLoading) return;
         var key = user + ':' + new Date().toDateString();
         if (Date.now() < seasonRetryAt && seasonKey === key) return;
+        var renderer = nativeComponent('cards');
+        if (!renderer) return;
         var requestUser = user;
         seasonLoading = true;
         try {
             var result = await request('Seasonal');
             if (!connected(home) || api().getCurrentUserId() !== requestUser || !settings || !settings.seasonalRecommendations) return;
             if (!result.items || !result.items.length) { seasonKey = key; seasonRetryAt = Date.now() + 60000; return; }
-            var section = element('section', '', 'verticalSection jp-season jp-owned padded-left padded-right');
-            section.appendChild(element('h2', result.title, 'sectionTitle'));
-            var row = element('div', '', 'jp-posters');
-            result.items.forEach(function (item) {
-                var card = element('a', '', 'jp-poster');
-                card.href = '#/details?id=' + encodeURIComponent(item.id) + '&serverId=' + encodeURIComponent(api().serverId());
-                var image = document.createElement('img');
-                image.alt = ''; image.loading = 'lazy';
-                image.src = api().getUrl('Items/' + item.id + '/Images/Primary', { maxWidth: 300, quality: 85 });
-                card.appendChild(image); card.appendChild(element('span', item.name)); row.appendChild(card);
+            var media = await api().getItems(requestUser, {
+                Ids: result.items.map(function (item) { return item.id; }).join(','),
+                Fields: 'PrimaryImageAspectRatio,MediaSourceCount', EnableTotalRecordCount: false
             });
-            row.addEventListener('keydown', function (e) {
-                if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-                var card = e.target.closest('.jp-poster');
-                var next = card && (e.key === 'ArrowLeft' ? card.previousElementSibling : card.nextElementSibling);
-                if (next) { e.preventDefault(); e.stopPropagation(); next.focus(); next.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
-            });
-            section.appendChild(row);
+            if (!connected(home) || api().getCurrentUserId() !== requestUser || !settings || !settings.seasonalRecommendations) return;
+            var items = result.items.map(function (item) { return media.Items.find(function (m) { return idKey(m.Id) === idKey(item.id); }); }).filter(Boolean);
+            if (!items.length) { seasonKey = key; seasonRetryAt = Date.now() + 60000; return; }
+            var section = element('div', '', 'verticalSection jp-season jp-owned');
+            section.innerHTML = '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><h2 class="sectionTitle sectionTitle-cards"></h2></div>' +
+                '<div is="emby-scroller" class="padded-top-focusscale padded-bottom-focusscale" data-centerfocus="true" data-hidescrollbar="true">' +
+                '<div is="emby-itemscontainer" class="itemsContainer scrollSlider focuscontainer-x"></div></div>';
+            section.querySelector('h2').textContent = result.title;
             placeSeasonal(home, section);
+            var row = section.querySelector('.itemsContainer');
+            row.fetchData = function () { return Promise.resolve(items); };
+            row.getItemsHtml = function (movies) {
+                return renderer.getCardsHtml({ items: movies, serverId: api().serverId(), shape: 'overflowPortrait',
+                    showTitle: true, showYear: true, centerText: true, lazy: true, overlayPlayButton: true,
+                    showUnplayedIndicator: false, context: 'home' });
+            };
+            row.parentContainer = section;
+            if (typeof row.refreshItems === 'function') await row.refreshItems();
+            else row.innerHTML = row.getItemsHtml(items);
+            var scroller = section.querySelector('[is="emby-scroller"]');
+            if (scroller.scroller) scroller.scroller.reload();
             seasonKey = ''; seasonRetryAt = 0;
         } catch (error) { console.warn('[Jelly+] Saisonale Empfehlungen:', error); seasonKey = key; seasonRetryAt = Date.now() + 15000; }
         finally { seasonLoading = false; }
@@ -361,9 +391,6 @@
         }, 100);
     }
     function start() {
-        var style = element('style');
-        style.textContent = '.jp-overlay{position:fixed;inset:0;z-index:100000;background:#000b;display:flex;align-items:center;justify-content:center}.jp-dialog{background:#202020;color:white;max-width:44em;width:85%;max-height:85vh;overflow:auto;padding:2em;border-radius:.6em}.jp-button{display:block;margin:.7em 0;padding:1em;white-space:normal;text-align:left}.jp-button:focus,.jp-poster:focus,.jp-toggle:focus-within{outline:3px solid #00a4dc;outline-offset:3px}.jp-posters{display:flex;gap:1em;overflow-x:auto;padding:.5em .3em 1.5em}.jp-poster{flex:0 0 10em;color:inherit;text-decoration:none}.jp-poster img{width:100%;height:15em;object-fit:cover;border-radius:.4em}.jp-poster span{display:block;margin-top:.5em}.jp-preferences{margin:2em 0}.jp-toggle{display:block;padding:1em 0}.jp-toggle input{width:1.3em;height:1.3em}.jp-menu{padding:.5em 1em}';
-        document.head.appendChild(style);
         var hiddenStyle = element('style');
         hiddenStyle.textContent = '.jp-hidden{display:none!important}';
         document.head.appendChild(hiddenStyle);
@@ -380,7 +407,13 @@
         }, true);
         document.addEventListener('contextmenu', function (e) { captureMenu(e.target); }, true);
         document.addEventListener('keydown', function (e) { if (e.keyCode === 457 || e.key === 'ContextMenu') captureMenu(document.activeElement); }, true);
-        new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
+        new MutationObserver(function (changes) {
+            if (changes.some(function (change) {
+                return change.type === 'childList' || (change.target.parentElement && change.target.parentElement.matches('.sections, .homeSectionsContainer'));
+            })) schedule();
+        }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
+        window.addEventListener('resize', schedule);
+        document.addEventListener('load', schedule, true);
         window.addEventListener('hashchange', function () { pendingMenu = null; seasonKey = ''; refresh(); });
         window.addEventListener('focus', refresh);
         document.addEventListener('viewshow', function () { refresh(); schedule(); }, true);

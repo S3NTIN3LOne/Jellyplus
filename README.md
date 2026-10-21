@@ -2,7 +2,7 @@
 
 Ein Server-Plugin für **Jellyfin 12.2**, das gemeinsamen Wiedergabefortschritt und zusätzliche Funktionen in Jellyfin Web und dem darauf basierenden LG-webOS-Client bereitstellt.
 
-**Status: Vorschau (0.1.2.0).** Die Integration wurde in Jellyfin Web 12.2 mit Desktop-, klassischer Desktop-, Mobil- und TV-Ansicht geprüft. Ein Test auf einem echten LG-Fernseher steht noch aus. Andere native Clients gehören nicht zum unterstützten Umfang.
+**Status: Vorschau (0.1.3.0).** Die Integration wurde in Jellyfin Web 12.2 mit Desktop-, klassischer Desktop-, Mobil- und TV-Ansicht geprüft. Ein Test auf einem echten LG-Fernseher steht noch aus. Andere native Clients gehören nicht zum unterstützten Umfang.
 
 ## Installation auf Unraid / Docker
 
@@ -25,6 +25,7 @@ Das bestehende Docker-Image bleibt unverändert. Kein JavaScript-Injector, zusä
 - Unter **Profil → Wiedergabe → Jelly+** aktiviert jeder Nutzer **Watch Together**. Damit gibt er sich für Verknüpfungen durch andere aktivierte Profile frei.
 - Im Drei-Punkte-Menü eines Films, einer Serie oder einer Episode **Watch Together** wählen. Episoden verknüpfen die zugehörige Serie.
 - Der Menüpunkt erscheint ausschließlich bei aktivierter Profilfreigabe.
+- Medienmenü und Profilauswahl verwenden Jellyfins Menüelemente. Die Freigabe steht im Wiedergabeformular vor dem Speichern-Button und verwendet Jellyfins Checkbox und Beschreibungstext.
 - Profil auswählen und festlegen, welcher Fortschritt übernommen werden soll. Bei Serien gilt diese Auswahl für die gemeinsam zugänglichen Episoden.
 - Abspielposition, Gesehen-Status, Wiedergabezähler und letztes Wiedergabedatum werden geteilt. Favoriten, Bewertungen und Audio-/Untertitelpräferenzen bleiben persönlich.
 - Verknüpfungen sind beidseitig und können Gruppen bilden. Die Auswahl beim Verbinden gilt für alle beteiligten Gruppenmitglieder; der Dialog nennt deren Anzahl. Beim späteren Abspielen gewinnt die zuletzt verarbeitete Änderung.
@@ -36,7 +37,9 @@ Das bestehende Docker-Image bleibt unverändert. Kein JavaScript-Injector, zusä
 - **01.12.–31.12.: Weihnachten** anhand von Titeln, Beschreibungen, Genres und Tags wie „Christmas“, „Weihnachten“ und „Heiligabend“.
 - **15.10.–01.11.: Halloween** einschließlich Horrorfilmen.
 - Bis zu 40 passende Filme als eigene Startseitenzeile; administrativ abschaltbar. Es werden nur für das angemeldete Profil zugängliche Medien angezeigt.
+- Die Zeile verwendet Jellyfins Kartenrenderer und Scroller einschließlich nativer Pfeiltasten in der Desktopansicht. Größen, Abstände, Icons und Farben folgen den normalen Medienkarten und dem aktiven Theme. Es gibt keine eigene Poster-Scrolleiste.
 - Die Zeile steht unmittelbar vor dem ersten Abschnitt mit kürzlich hinzugefügten Medien. Bibliotheken, „Als nächstes“ und „Weiterschauen“ behalten dabei die vom Nutzer gewählte Reihenfolge. Fehlt ein Abschnitt für zuletzt hinzugefügte Medien, wird die Zeile am Ende ergänzt. Fehlgeschlagene Anfragen werden erneut versucht; ohne passende Filme oder außerhalb der Zeiträume erscheint keine Zeile.
+- Bei einer durch CSS umsortierten Startseite übernimmt die Zeile den berechneten `order`-Wert der zuletzt hinzugefügten Medien. Dadurch folgt sie deren visueller Position, statt durch den Standardwert `0` weiter oben zu erscheinen.
 - Die Zeiträume sind inklusive; maßgeblich ist die Serverzeitzone. Auf Unraid kann hierfür `TZ=Europe/Berlin` am Container gesetzt werden.
 
 ### Saisonale Effekte des Themes
@@ -72,7 +75,7 @@ npm test
 Paket und Manifest erstellen (PowerShell 7 oder Windows PowerShell):
 
 ```powershell
-./scripts/package.ps1 -Version 0.1.2.0 -Repository S3NTIN3LOne/Jellyplus
+./scripts/package.ps1 -Version 0.1.3.0 -Repository S3NTIN3LOne/Jellyplus
 ```
 
 Das ZIP enthält ausschließlich die Plugin-DLL einschließlich eingebetteter Webressourcen. Die Jellyfin-Assemblies liefert der Server. Der GitHub-Workflow **Publish release** erstellt nach erfolgreichen Tests eine Vorabversion und aktualisiert das Manifest. Vor einer stabilen Freigabe die Geräteprüfungen in [TESTING.md](TESTING.md) durchführen.
@@ -82,6 +85,8 @@ Jelly+ speichert seine Profilfreigaben, Verknüpfungen und ausgeblendeten Medien
 ## Technische Grenzen
 
 Die UI-Einbindung ist eine versionsgebundene Erweiterung, keine offizielle Jellyfin-Web-Plugin-Schnittstelle. Jellyfin-Web-Updates können Anpassungen erforderlich machen. Der Client muss die Weboberfläche dieses Servers verwenden; eine separat gehostete Web-App erhält die Plugin-Erweiterung nicht. Geteilte Fortschritte sind keine synchronisierte Streaming-Sitzung.
+
+Für Karten und Auswahldialoge verwendet Jelly+ die bereits gebündelten nativen UI-Module von Jellyfin 12.2. Diese werden anhand ihrer Exporte erkannt; feste Modulnummern werden nicht verwendet. Es werden keine Webdateien oder Bundles umgeschrieben.
 
 Beim erstmaligen Verknüpfen werden Fortschritte über Jellyfins öffentliche Dienste einzeln gespeichert. Ein Fehler kann bereits übertragene Einträge hinterlassen; die Verknüpfung wird erst nach erfolgreichem Kopieren gespeichert. Eine erneute Auswahl gleicht die Einträge ab.
 
