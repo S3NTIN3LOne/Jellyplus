@@ -20,6 +20,9 @@ function fixture(markup, responses = {}, configure) {
             card.href='#/details?id='+item.Id;const img=w.document.createElement('img');card.appendChild(img);
             const text=w.document.createElement('span');text.className='cardText';text.textContent=item.Name;card.appendChild(text);return card.outerHTML;
         }).join('');
+    }, buildCards(items,options) {
+        nativeCalls.push({type:'buildCards',items,options});
+        options.itemsContainer.innerHTML=this.getCardsHtml({...options,items});
     }};
     const actions = { show(options) {
         nativeCalls.push({type:'actions',options});
@@ -38,7 +41,10 @@ function fixture(markup, responses = {}, configure) {
         getCurrentUserId: () => 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', accessToken: () => 'test-token', serverId: () => 'server',
         getUrl: path => 'http://localhost/' + path,
         getItem: async () => ({ CollectionType: 'movies' }),
-        getItems: async (_user,options) => ({ Items: options.Ids ? options.Ids.split(',').map(id => ({Id:id, Name:responses.Seasonal?.Items?.find(i=>i.Id===id)?.Name || 'Test film'})) : [{ Id: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' }] })
+        getItems: async (_user,options) => {
+            nativeCalls.push({type:'getItems',options});
+            return { Items: options.Ids ? options.Ids.split(',').map(id => ({Id:id, Name:responses.Seasonal?.Items?.find(i=>i.Id===id)?.Name || 'Test film'})) : [{ Id: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' }] };
+        }
     };
     w.fetch = async (url, options) => {
         const path = url.replace('http://localhost/Jellyplus/', '');
@@ -105,20 +111,24 @@ test('seasonal metadata uses the native card builder and scroller', async () => 
         assert.equal(card.querySelector('span').textContent, '<img src=x onerror=alert(1)>');
         assert.ok(w.document.querySelector('.jp-season [is="emby-scroller"] .scrollSlider[is="emby-itemscontainer"]'));
         assert.equal(nativeCalls.find(c=>c.type==='cards').options.shape,'overflowPortrait');
+        assert.equal(nativeCalls.find(c=>c.type==='getItems').options.EnableImages,true);
+        assert.equal(nativeCalls.find(c=>c.type==='getItems').options.EnableImageTypes,'Primary,Backdrop,Thumb');
+        assert.equal(nativeCalls.find(c=>c.type==='buildCards').options.itemsContainer,w.document.querySelector('.jp-season .itemsContainer'));
         assert.equal(w.document.querySelector('.jp-posters'),null);
     } finally { dom.window.close(); }
 });
 
-test('recommendations match latest-media CSS order and react to custom layout changes', async () => {
+test('recommendations share the latest-media slot without shifting CSS sibling selectors', async () => {
     const { dom,w }=fixture('<style>.sections{display:flex;flex-direction:column}#live{order:1}#next{order:2}#latest{order:8}</style><div id="homeTab"><div class="sections"><div class="verticalSection" id="live">Live-TV</div><div class="verticalSection" id="next">Next Up</div><div id="latest"><a href="#/movies?section=latest">Latest</a></div></div></div>',{
         Seasonal:{Title:'Halloween',Items:[{Id:'bbbb',Name:'Film'}]}
     });
     try{
         await wait(400);const section=w.document.querySelector('.jp-season');
-        assert.equal(section.style.order,'8');assert.equal(section.nextElementSibling.id,'latest');
-        assert.equal(section.style.getPropertyPriority('order'),'important');
+        assert.equal(section.parentElement.id,'latest');assert.equal(section.style.order,'');
+        assert.equal(w.document.querySelector('.sections').children.length,3);
+        assert.equal(w.document.querySelector('#latest').firstElementChild,section);
         w.document.querySelector('#latest').style.order='12';await wait(400);
-        assert.equal(section.style.order,'12');assert.equal(section.nextElementSibling.id,'latest');
+        assert.equal(w.getComputedStyle(section.parentElement).order,'12');assert.equal(section.parentElement.id,'latest');
     }finally{dom.window.close()}
 });
 
@@ -283,8 +293,9 @@ test('recommendations follow next-up and resume immediately before desktop lates
     try {
         await wait(400);
         const section = w.document.querySelector('.jp-season');
-        assert.equal(section.previousElementSibling.id, 'next');
-        assert.equal(section.nextElementSibling.id, 'latest');
+        assert.equal(section.parentElement.id, 'latest');
+        assert.equal(section.parentElement.previousElementSibling.id, 'next');
+        assert.equal(section.parentElement.firstElementChild,section);
     } finally { dom.window.close(); }
 });
 
@@ -298,7 +309,25 @@ test('TV recommendations reposition when latest library rows arrive after the re
         latest.innerHTML = '<div class="verticalSection"><h2>Neu in Filme</h2><div class="itemsContainer"></div></div>';
         const home = w.document.querySelector('.homeSectionsContainer'); home.insertBefore(latest, home.firstChild);
         await wait(400);
-        assert.equal(w.document.querySelector('.jp-season').nextElementSibling.id, 'latest');
+        assert.equal(w.document.querySelector('.jp-season').parentElement.id, 'latest');
         assert.equal(calls.filter(c => c.path === 'Seasonal').length, 1);
     } finally { dom.window.close(); }
+});
+
+for (const feed of ['Als nächstes','Weiterschauen']) {
+    test('hide menu label names only its source feed: '+feed,async()=>{
+        const{dom,w}=fixture('<div class="homePage"><div class="verticalSection"><h2 class="sectionTitle">'+feed+'</h2><div class="itemsContainer" data-monitor="videoplayback,markplayed"><div data-id="bbbb" data-type="Episode"><button data-action="menu">More</button></div></div></div></div>');
+        try{
+            await wait();w.document.querySelector('button').click();
+            const sheet=w.document.createElement('div');sheet.className='actionSheetContent';sheet.innerHTML='<button class="actionSheetMenuItem"><div class="actionSheetItemText">Play</div></button>';w.document.body.appendChild(sheet);await wait();
+            const labels=[...sheet.querySelectorAll('.jp-menu .actionSheetItemText')].map(n=>n.textContent);
+            assert.ok(labels.includes('Aus „'+feed+'“ ausblenden'));
+            assert.equal(labels.some(s=>s.includes('und „')),false);
+        }finally{dom.window.close()}
+    });
+}
+
+test('live TV headers do not become the recommendation insertion target',async()=>{
+    const{dom,w}=fixture('<div id="homeTab"><div class="sections"><div class="verticalSection" id="live"><a class="more sectionTitleTextButton" href="#/livetv">Live-TV</a></div><div id="latest"><div class="verticalSection"><a class="more sectionTitleTextButton" href="#/movies?topParentId=aaa">Latest</a></div></div></div></div>',{Seasonal:{Title:'Halloween',Items:[{Id:'bbbb',Name:'Film'}]}});
+    try{await wait(400);assert.equal(w.document.querySelector('.jp-season').parentElement.id,'latest');assert.equal(w.document.querySelector('#live .jp-season'),null)}finally{dom.window.close()}
 });

@@ -1,5 +1,13 @@
 # Validierung
 
+## Korrekturen in 0.1.4.0
+
+- 21 .NET-Tests und 19 DOM-Tests: Menütext je Quellzeile, initialer Aufruf des nativen `buildCards`, explizite Bildmetadaten, unveränderte Anzahl äußerer Startseitenabschnitte und Ausschluss von Live-TV-Links als Einfügeziel.
+- Der Testfilm hat nun eine reale lokale PNG-Posterdatei. Im Browser wurden der gesetzte native Hintergrundbild-Link, HTTP 200 und erfolgreiches Dekodieren mit Bildmaßen 248 × 372 geprüft. Zuvor enthielt die Testbibliothek keine Poster; damit ließ sich deren tatsächliche Anzeige nicht bestätigen.
+- Visuelle Koordinaten geprüft für normalen Aufbau, Flex mit `nth-child`-Sortierung, CSS Grid und `display: contents`: Next Up liegt vor der Saisonzeile; die erste sichtbare Zeile kürzlich hinzugefügter Medien liegt danach. Die äußere Anzahl von zehn Startseitenabschnitten bleibt unverändert.
+- Im echten Medienmenü aus beiden nativen Zeilen die exakten Texte „Aus ‚Weiterschauen‘ ausblenden“ und „Aus ‚Als nächstes‘ ausblenden“ geprüft.
+- Die aktuell beim Nutzer eingesetzten CSS-Regeln wurden angefragt, liegen bisher aber nicht vor. Die vier Browserfälle prüfen deshalb die genannten Sortiermechanismen und nicht dessen vollständige individuelle CSS-Datei.
+
 ## Korrekturen in 0.1.3.0
 
 - 21 .NET-Tests und 16 DOM-Tests prüfen unter anderem die Delegation an Jellyfins Kartenrenderer und Action Sheets, native Menüstruktur und Checkbox, Einbindung innerhalb des Wiedergabeformulars sowie die dynamische Übernahme des CSS-`order`-Wertes.

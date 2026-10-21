@@ -1,10 +1,9 @@
-Jelly+ 0.1.3.0 für Jellyfin 12.2 – native Darstellung und Reihenfolge bei Custom-CSS.
+Jelly+ 0.1.4.0 für Jellyfin 12.2 – Menütexte, Poster und Startseitenplatzierung.
 
-- Saisonale Empfehlungen verwenden Jellyfins Kartenrenderer und nativen Scroller mit Desktop-Pfeiltasten. Der eigene Posteraufbau mit sichtbarer Scrollleiste entfällt.
-- Die Zeile übernimmt die CSS-Reihenfolge des Abschnitts für zuletzt hinzugefügte Medien und bleibt auch auf umsortierten Startseiten unmittelbar davor.
-- Watch Together und Ausblenden erscheinen als normale Medienmenüpunkte mit Icons. Auswahl- und Bestätigungsdialoge verwenden Jellyfins Action Sheets.
-- Die Profilfreigabe steht innerhalb des Wiedergabeformulars vor Speichern und verwendet die native Checkbox, Beschreibung und Schaltfläche.
-- 21 .NET-Tests und 16 Oberflächentests sowie Browserprüfungen mit Standarddesign, ElegantFin und einer per CSS umsortierten Startseite.
+- Das Ausblenden-Menü benennt nur die Zeile, aus der es geöffnet wurde: „Als nächstes“ oder „Weiterschauen“.
+- Die saisonalen Karten fordern Bildmetadaten ausdrücklich an und starten Jellyfins nativen Bildlader beim ersten Aufbau.
+- Die Saisonzeile sitzt innerhalb des bestehenden Abschnitts für kürzlich hinzugefügte Medien. Zusätzliche äußere Layout-Elemente und eigene `order`-Werte entfallen; CSS-Sortierung über Flex, `nth-child`, Grid und `display: contents` bleibt erhalten.
+- 21 .NET- und 19 Oberflächentests erfolgreich. Zusätzlich im Browser geprüft: Posterabruf mit HTTP 200 und erfolgreicher Bilddekodierung, beide Menütexte sowie die visuelle Position in vier Layoutvarianten.
 
 Nach dem Update den Jellyfin-Container neu starten, die Browserseite neu laden und die LG-App vollständig schließen und erneut öffnen.
 

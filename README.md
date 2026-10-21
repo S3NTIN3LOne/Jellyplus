@@ -2,7 +2,7 @@
 
 Ein Server-Plugin für **Jellyfin 12.2**, das gemeinsamen Wiedergabefortschritt und zusätzliche Funktionen in Jellyfin Web und dem darauf basierenden LG-webOS-Client bereitstellt.
 
-**Status: Vorschau (0.1.3.0).** Die Integration wurde in Jellyfin Web 12.2 mit Desktop-, klassischer Desktop-, Mobil- und TV-Ansicht geprüft. Ein Test auf einem echten LG-Fernseher steht noch aus. Andere native Clients gehören nicht zum unterstützten Umfang.
+**Status: Vorschau (0.1.4.0).** Die Integration wurde in Jellyfin Web 12.2 mit Desktop-, klassischer Desktop-, Mobil- und TV-Ansicht geprüft. Ein Test auf einem echten LG-Fernseher steht noch aus. Andere native Clients gehören nicht zum unterstützten Umfang.
 
 ## Installation auf Unraid / Docker
 
@@ -39,7 +39,8 @@ Das bestehende Docker-Image bleibt unverändert. Kein JavaScript-Injector, zusä
 - Bis zu 40 passende Filme als eigene Startseitenzeile; administrativ abschaltbar. Es werden nur für das angemeldete Profil zugängliche Medien angezeigt.
 - Die Zeile verwendet Jellyfins Kartenrenderer und Scroller einschließlich nativer Pfeiltasten in der Desktopansicht. Größen, Abstände, Icons und Farben folgen den normalen Medienkarten und dem aktiven Theme. Es gibt keine eigene Poster-Scrolleiste.
 - Die Zeile steht unmittelbar vor dem ersten Abschnitt mit kürzlich hinzugefügten Medien. Bibliotheken, „Als nächstes“ und „Weiterschauen“ behalten dabei die vom Nutzer gewählte Reihenfolge. Fehlt ein Abschnitt für zuletzt hinzugefügte Medien, wird die Zeile am Ende ergänzt. Fehlgeschlagene Anfragen werden erneut versucht; ohne passende Filme oder außerhalb der Zeiträume erscheint keine Zeile.
-- Bei einer durch CSS umsortierten Startseite übernimmt die Zeile den berechneten `order`-Wert der zuletzt hinzugefügten Medien. Dadurch folgt sie deren visueller Position, statt durch den Standardwert `0` weiter oben zu erscheinen.
+- Die Zeile wird innerhalb des bestehenden Startseitenabschnitts für kürzlich hinzugefügte Medien eingefügt. Sie erzeugt keinen zusätzlichen äußeren Abschnitt und verschiebt dadurch keine `nth-child`-Selektoren. Flex-, Grid- und `display: contents`-Layouts verwenden weiterhin die Position des vorhandenen Abschnitts.
+- Bildmetadaten werden ausdrücklich angefordert. Der erste Aufbau verwendet Jellyfins `buildCards` inklusive Bildlader, auch wenn das native Items-Container-Element noch initialisiert wird.
 - Die Zeiträume sind inklusive; maßgeblich ist die Serverzeitzone. Auf Unraid kann hierfür `TZ=Europe/Berlin` am Container gesetzt werden.
 
 ### Saisonale Effekte des Themes
@@ -54,7 +55,7 @@ Die Admin-Option lässt die Bibliotheks-Schaltfläche **Zufällig** einen zufäl
 
 ### Startseite aufräumen
 
-Im Drei-Punkte-Menü **Aus „Als nächstes“ und „Weiterschauen“ ausblenden** auswählen. Episoden blenden ihre gesamte Serie für das eigene Profil aus. Der Wiedergabefortschritt bleibt erhalten.
+Im Drei-Punkte-Menü **Aus „Als nächstes“ ausblenden** beziehungsweise **Aus „Weiterschauen“ ausblenden** auswählen. Der Text richtet sich nach der Zeile, aus der das Menü geöffnet wurde; außerhalb dieser Zeilen heißt er **Auf der Startseite ausblenden**. Episoden blenden ihre gesamte Serie für das eigene Profil aus. Der Wiedergabefortschritt bleibt erhalten.
 
 Die Karten werden nach erfolgreichem Speichern direkt ausgeblendet. Es erfolgt kein vollständiger Seitenneustart; bereits zwischengespeicherte Startseitenkarten werden ebenfalls berücksichtigt.
 
@@ -75,7 +76,7 @@ npm test
 Paket und Manifest erstellen (PowerShell 7 oder Windows PowerShell):
 
 ```powershell
-./scripts/package.ps1 -Version 0.1.3.0 -Repository S3NTIN3LOne/Jellyplus
+./scripts/package.ps1 -Version 0.1.4.0 -Repository S3NTIN3LOne/Jellyplus
 ```
 
 Das ZIP enthält ausschließlich die Plugin-DLL einschließlich eingebetteter Webressourcen. Die Jellyfin-Assemblies liefert der Server. Der GitHub-Workflow **Publish release** erstellt nach erfolgreichen Tests eine Vorabversion und aktualisiert das Manifest. Vor einer stabilen Freigabe die Geräteprüfungen in [TESTING.md](TESTING.md) durchführen.

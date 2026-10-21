@@ -50,7 +50,7 @@
         var response = await fetch(current.getUrl('Jellyplus/' + path), {
             method: method || 'GET',
             headers: {
-                Authorization: 'MediaBrowser Client="Jellyplus", Device="Web", DeviceId="' + (current.deviceId ? current.deviceId() : 'jellyplus-web') + '", Version="0.1.3", Token="' + current.accessToken() + '"',
+                Authorization: 'MediaBrowser Client="Jellyplus", Device="Web", DeviceId="' + (current.deviceId ? current.deviceId() : 'jellyplus-web') + '", Version="0.1.4", Token="' + current.accessToken() + '"',
                 'Content-Type': 'application/json'
             },
             body: body === undefined ? undefined : JSON.stringify(body),
@@ -217,9 +217,7 @@
         form.insertBefore(section, submit);
     }
     function placeSeasonal(home, section) {
-        // Desktop links explicitly identify the latest feed; TV renders nested
-        // library sections inside the same section slot, without those links.
-        var link = home.querySelector('a[href*="section=latest"], a[href*="section%3Dlatest"], a[href*="/latest"]');
+        var link = home.querySelector('a.more.sectionTitleTextButton[href*="topParentId"], a.more.sectionTitleTextButton[href*="parentId"], a[href*="section=latest"], a[href*="section%3Dlatest"], a[href*="/latest"]');
         var latest = link;
         while (latest && latest.parentNode !== home) latest = latest.parentElement;
         if (!latest) {
@@ -228,12 +226,10 @@
                     || (!slot.classList.contains('verticalSection') && slot.querySelector('.verticalSection .itemsContainer:not([data-monitor])')));
             });
         }
-        // Without a latest feed, preserve the user's preceding home sections.
+        // Share the existing latest-media slot. A new sibling would shift
+        // nth-child selectors and create an independent flex/grid item.
         if (latest) {
-            if (section.nextElementSibling !== latest) home.insertBefore(section, latest);
-            var order = window.getComputedStyle(latest).order;
-            if (section.style.getPropertyValue('order') !== order || section.style.getPropertyPriority('order') !== 'important')
-                section.style.setProperty('order', order, 'important');
+            if (latest.firstElementChild !== section) latest.insertBefore(section, latest.firstChild);
         } else if (section.parentNode !== home) home.appendChild(section);
     }
     function loadSeasonalEffects() {
@@ -264,7 +260,15 @@
             var match = /[?&]id=([a-f0-9-]+)/i.exec(route);
             if (match && /details/i.test(route)) id = match[1];
         }
-        if (id && (!type || ['Movie', 'Series', 'Episode'].indexOf(type) >= 0)) pendingMenu = { id: id, at: Date.now() };
+        var feed = null;
+        var row = card && card.closest('.itemsContainer');
+        var section = row && row.closest('.verticalSection');
+        if (section && row.getAttribute('data-monitor') && /videoplayback/.test(row.getAttribute('data-monitor'))) {
+            feed = section.querySelector('a[href*="nextup"]') ? 'Als nächstes' : null;
+            if (!feed && /(?:als n[aä]chstes|next up)/i.test((section.querySelector('.sectionTitle') || {}).textContent || '')) feed = 'Als nächstes';
+            if (!feed) feed = 'Weiterschauen';
+        }
+        if (id && (!type || ['Movie', 'Series', 'Episode'].indexOf(type) >= 0)) pendingMenu = { id: id, at: Date.now(), feed: feed };
         else pendingMenu = null;
     }
     function extendMenu() {
@@ -274,6 +278,7 @@
         var nativeItem = content.querySelector('.actionSheetMenuItem');
         if (!nativeItem) return;
         var item = pendingMenu.id;
+        var feed = pendingMenu.feed;
         var group = element('div', '', 'jp-menu jp-owned');
         function closeNative() {
             pendingMenu = null;
@@ -315,7 +320,8 @@
             group.appendChild(watchButton);
         }
         var hidden = settings.hidden.some(function (id) { return idKey(id) === idKey(item); });
-        group.appendChild(menuEntry(hidden ? 'Auf Startseite wieder anzeigen' : 'Aus „Als nächstes“ und „Weiterschauen“ ausblenden', hidden ? 'visibility' : 'visibility_off', async function () {
+        var hideLabel = feed ? 'Aus „' + feed + '“ ausblenden' : 'Auf der Startseite ausblenden';
+        group.appendChild(menuEntry(hidden ? 'Auf Startseite wieder anzeigen' : hideLabel, hidden ? 'visibility' : 'visibility_off', async function () {
             if (hidden) { await request('Hidden/' + item, 'DELETE'); hiddenKey = ''; settingsRetryAt = 0; await refresh(); return applyHidden(); }
             return hide(item);
         }));
@@ -339,7 +345,8 @@
             if (!result.items || !result.items.length) { seasonKey = key; seasonRetryAt = Date.now() + 60000; return; }
             var media = await api().getItems(requestUser, {
                 Ids: result.items.map(function (item) { return item.id; }).join(','),
-                Fields: 'PrimaryImageAspectRatio,MediaSourceCount', EnableTotalRecordCount: false
+                Fields: 'PrimaryImageAspectRatio,MediaSourceCount', EnableTotalRecordCount: false,
+                EnableImages: true, ImageTypeLimit: 1, EnableImageTypes: 'Primary,Backdrop,Thumb'
             });
             if (!connected(home) || api().getCurrentUserId() !== requestUser || !settings || !settings.seasonalRecommendations) return;
             var items = result.items.map(function (item) { return media.Items.find(function (m) { return idKey(m.Id) === idKey(item.id); }); }).filter(Boolean);
@@ -352,14 +359,18 @@
             placeSeasonal(home, section);
             var row = section.querySelector('.itemsContainer');
             row.fetchData = function () { return Promise.resolve(items); };
-            row.getItemsHtml = function (movies) {
-                return renderer.getCardsHtml({ items: movies, serverId: api().serverId(), shape: 'overflowPortrait',
+            function cardOptions(movies) {
+                return { items: movies, serverId: api().serverId(), shape: 'overflowPortrait',
                     showTitle: true, showYear: true, centerText: true, lazy: true, overlayPlayButton: true,
-                    showUnplayedIndicator: false, context: 'home' });
+                    showUnplayedIndicator: false, context: 'home' };
+            }
+            row.getItemsHtml = function (movies) {
+                return renderer.getCardsHtml(cardOptions(movies));
             };
             row.parentContainer = section;
-            if (typeof row.refreshItems === 'function') await row.refreshItems();
-            else row.innerHTML = row.getItemsHtml(items);
+            // buildCards registers the native image loader even when the custom
+            // items-container element has not finished upgrading yet (webOS).
+            renderer.buildCards(items, Object.assign(cardOptions(items), { itemsContainer: row }));
             var scroller = section.querySelector('[is="emby-scroller"]');
             if (scroller.scroller) scroller.scroller.reload();
             seasonKey = ''; seasonRetryAt = 0;
