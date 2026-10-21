@@ -271,7 +271,7 @@ test('desktop loads the requested effects once while leaving CSS to the local th
     try {
         await wait();
         const script = w.document.querySelector('#jp-seasonal-effects');
-        assert.equal(script.src, 'https://cdn.jsdelivr.net/gh/S3NTIN3LOne/jellyfin-elegantfin-tv@v0.1.13/desktop/ElegantFin-seasonal.js');
+        assert.equal(script.src, 'https://cdn.jsdelivr.net/gh/S3NTIN3LOne/jellyfin-elegantfin-tv@v0.1.15/desktop/ElegantFin-seasonal.js');
         const marker = w.document.querySelector('link[data-ef-seasonal-css]');
         assert.ok(marker);
         assert.equal(marker.hasAttribute('href'), false);

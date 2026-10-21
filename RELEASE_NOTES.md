@@ -1,9 +1,16 @@
-Jelly+ 0.1.4.0 für Jellyfin 12.2 – Menütexte, Poster und Startseitenplatzierung.
+Jelly+ 0.1.5.0 für Jellyfin 12.2 – aktualisierter Saison-Loader.
 
-- Das Ausblenden-Menü benennt nur die Zeile, aus der es geöffnet wurde: „Als nächstes“ oder „Weiterschauen“.
-- Die saisonalen Karten fordern Bildmetadaten ausdrücklich an und starten Jellyfins nativen Bildlader beim ersten Aufbau.
-- Die Saisonzeile sitzt innerhalb des bestehenden Abschnitts für kürzlich hinzugefügte Medien. Zusätzliche äußere Layout-Elemente und eigene `order`-Werte entfallen; CSS-Sortierung über Flex, `nth-child`, Grid und `display: contents` bleibt erhalten.
-- 21 .NET- und 19 Oberflächentests erfolgreich. Zusätzlich im Browser geprüft: Posterabruf mit HTTP 200 und erfolgreicher Bilddekodierung, beide Menütexte sowie die visuelle Position in vier Layoutvarianten.
+- Lädt ElegantFin-seasonal.js aus Version 0.1.15 statt 0.1.13.
+- Das neue Script begrenzt Partikel auf den Bereich bis unter Media Bar/„Meine Medien“ und berücksichtigt Scrollen, Größenänderungen und nachgeladene Reihen.
+- Auch bei bereits vom Theme bereitgestelltem älteren Saison-CSS wird die gemessene Höhe angewendet.
+
+Für die Profil- und Reihenfolgekorrekturen den bisherigen Theme-Zusatzimport ersetzen:
+
+```css
+@import url("https://cdn.jsdelivr.net/gh/S3NTIN3LOne/jellyfin-elegantfin-tv@v0.1.15/desktop/jellyplus-support.css");
+```
+
+Die Veröffentlichung führt sämtliche .NET- und Webtests vor dem Paketbau aus.
 
 Nach dem Update den Jellyfin-Container neu starten, die Browserseite neu laden und die LG-App vollständig schließen und erneut öffnen.
 

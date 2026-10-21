@@ -50,7 +50,7 @@
         var response = await fetch(current.getUrl('Jellyplus/' + path), {
             method: method || 'GET',
             headers: {
-                Authorization: 'MediaBrowser Client="Jellyplus", Device="Web", DeviceId="' + (current.deviceId ? current.deviceId() : 'jellyplus-web') + '", Version="0.1.4", Token="' + current.accessToken() + '"',
+                Authorization: 'MediaBrowser Client="Jellyplus", Device="Web", DeviceId="' + (current.deviceId ? current.deviceId() : 'jellyplus-web') + '", Version="0.1.5", Token="' + current.accessToken() + '"',
                 'Content-Type': 'application/json'
             },
             body: body === undefined ? undefined : JSON.stringify(body),
@@ -236,7 +236,7 @@
         var root = document.documentElement;
         if (!root.matches('.layout-desktop, .layout-mobile') || root.classList.contains('layout-tv')
             || window.ElegantFinSeasonal || document.querySelector('#jp-seasonal-effects') || Date.now() < effectsRetryAt) return;
-        var source = 'https://cdn.jsdelivr.net/gh/S3NTIN3LOne/jellyfin-elegantfin-tv@v0.1.13/desktop/ElegantFin-seasonal.js';
+        var source = 'https://cdn.jsdelivr.net/gh/S3NTIN3LOne/jellyfin-elegantfin-tv@v0.1.15/desktop/ElegantFin-seasonal.js';
         if (Array.prototype.some.call(document.scripts, function (script) { return script.src === source; })) return;
         // The local theme already supplies the CSS. This is the opt-out marker
         // understood by ElegantFin-seasonal.js; it has no URL and loads no CSS.
