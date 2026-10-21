@@ -5,12 +5,12 @@
         "description":  "Shared playback progress, seasonal recommendations and a personal home screen for Jellyfin Web and LG webOS.",
         "versions":  [
                          {
-                             "changelog":  "Use native Jellyfin cards, scroller arrows, action sheets and playback controls; follow the latest-media CSS order in custom home layouts.",
-                             "version":  "0.1.3.0",
-                             "checksum":  "b340493f8a88019a053108b7f188b4ba",
-                             "timestamp":  "2026-10-21T19:41:08Z",
+                             "changelog":  "Name the source feed in hide menus, explicitly load poster metadata and native images, and nest seasonal recommendations in the latest-media home slot.",
+                             "version":  "0.1.4.0",
+                             "checksum":  "0c305625909b490362746507c5caa5c2",
+                             "timestamp":  "2026-10-21T19:58:28Z",
                              "targetAbi":  "12.2.0.0",
-                             "sourceUrl":  "https://github.com/S3NTIN3LOne/Jellyplus/releases/download/v0.1.3.0/Jellyplus_0.1.3.0.zip"
+                             "sourceUrl":  "https://github.com/S3NTIN3LOne/Jellyplus/releases/download/v0.1.4.0/Jellyplus_0.1.4.0.zip"
                          }
                      ],
         "category":  "General",
