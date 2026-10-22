@@ -1,20 +1,20 @@
 [
-  {
-    "name": "Jelly+",
-    "category": "General",
-    "guid": "d357e8be-6be8-46b5-bd30-15a530412cd9",
-    "description": "Shared playback progress, seasonal recommendations and a personal home screen for Jellyfin Web and LG webOS.",
-    "overview": "Shared progress and a personal home screen",
-    "owner": "S3NTIN3LOne",
-    "versions": [
-      {
-        "sourceUrl": "https://github.com/S3NTIN3LOne/Jellyplus/releases/download/v0.1.5.0/Jellyplus_0.1.5.0.zip",
-        "targetAbi": "12.2.0.0",
-        "version": "0.1.5.0",
-        "timestamp": "2026-10-21T20:13:00Z",
-        "changelog": "Load ElegantFin seasonal effects 0.1.15 so particles stop below Media Bar and My Media and follow scrolling and resizing. Update the matching script-loader test. Install the updated theme CSS for profile and library-order fixes.",
-        "checksum": "556a50349de0c0df967f6ba1d6c18f9a"
-      }
-    ]
-  }
+    {
+        "name":  "Jelly+",
+        "owner":  "S3NTIN3LOne",
+        "description":  "Shared playback progress, seasonal recommendations and a personal home screen for Jellyfin Web and LG webOS.",
+        "versions":  [
+                         {
+                             "changelog":  "Resolve the TV recommendation position from Jellyfin home settings, including automatically inserted library rows, instead of matching Live TV row markup.",
+                             "version":  "0.1.6.0",
+                             "checksum":  "5428f5a3416942c02b13a07fbff4e697",
+                             "timestamp":  "2026-10-22T19:57:49Z",
+                             "targetAbi":  "12.2.0.0",
+                             "sourceUrl":  "https://github.com/S3NTIN3LOne/Jellyplus/releases/download/v0.1.6.0/Jellyplus_0.1.6.0.zip"
+                         }
+                     ],
+        "category":  "General",
+        "overview":  "Shared progress and a personal home screen",
+        "guid":  "d357e8be-6be8-46b5-bd30-15a530412cd9"
+    }
 ]
