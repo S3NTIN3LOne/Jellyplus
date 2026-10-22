@@ -1,5 +1,12 @@
 # Validierung
 
+## Korrektur in 0.1.6.0
+
+- 21 .NET-Tests und 24 DOM-Tests. Neue Fälle: Live-TV vor Bibliotheken, automatisch ergänzte Bibliothekszeile, kleine Bibliotheksbuttons, deaktivierte Latest-Media-Zeile, verzögerter Abschnittsaufbau und geänderte Startseitenkonfiguration.
+- Im laufenden Jellyfin 12.2 mit Edge im TV-Layout und echten nativen Startseitenmodulen geprüft. Die Profilkonfiguration wurde nur für die Testantwort verändert. Eine Live-TV-Zeile wurde im DOM ergänzt, da der Testserver keinen TV-Tuner hat.
+- Die bisherige Version ordnet die Empfehlungen in beiden Konfigurationen dem Live-TV-Abschnitt zu. Die neue Version verwendet jeweils den korrekten Latest-Media-Abschnitt; die sichtbare Saisonzeile liegt darüber. Keine JavaScript-Seitenfehler in diesen Durchläufen.
+- Die Browser- und Mobilplatzierung ist unverändert; vorhandene DOM-Tests bleiben erfolgreich. Physische LG-Hardware und die vollständige individuelle TV-CSS-Datei stehen weiterhin nicht zur Verfügung.
+
 ## Korrekturen in 0.1.4.0
 
 - 21 .NET-Tests und 19 DOM-Tests: Menütext je Quellzeile, initialer Aufruf des nativen `buildCards`, explizite Bildmetadaten, unveränderte Anzahl äußerer Startseitenabschnitte und Ausschluss von Live-TV-Links als Einfügeziel.

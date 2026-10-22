@@ -1,5 +1,9 @@
 # Jelly+
 
+## Update 0.1.6.0
+
+Saisonempfehlungen verwenden im TV-Modus den konfigurierten Abschnitt für kürzlich hinzugefügte Medien. Live-TV-Zeilen werden nicht mehr als Einfügeziel erkannt. Automatisch ergänzte Bibliothekszeilen werden berücksichtigt.
+
 ## Update 0.1.5.0
 
 Der automatische Saison-Loader verwendet ElegantFin 0.1.15. Die Partikel enden
@@ -9,7 +13,7 @@ verwenden. Anschließend Server neu starten und die Clients vollständig neu lad
 
 Ein Server-Plugin für **Jellyfin 12.2**, das gemeinsamen Wiedergabefortschritt und zusätzliche Funktionen in Jellyfin Web und dem darauf basierenden LG-webOS-Client bereitstellt.
 
-**Status: Vorschau (0.1.5.0).** Die Integration wurde in Jellyfin Web 12.2 mit Desktop-, klassischer Desktop-, Mobil- und TV-Ansicht geprüft. Ein Test auf einem echten LG-Fernseher steht noch aus. Andere native Clients gehören nicht zum unterstützten Umfang.
+**Status: Vorschau (0.1.6.0).** Die Integration wurde in Jellyfin Web 12.2 mit Desktop-, klassischer Desktop-, Mobil- und TV-Ansicht geprüft. Ein Test auf einem echten LG-Fernseher steht noch aus. Andere native Clients gehören nicht zum unterstützten Umfang.
 
 ## Installation auf Unraid / Docker
 
@@ -52,7 +56,7 @@ Das bestehende Docker-Image bleibt unverändert. Kein JavaScript-Injector, zusä
 
 ### Saisonale Effekte des Themes
 
-In Desktop- und Mobilansicht lädt Jelly+ einmalig [ElegantFin-seasonal.js v0.1.13](https://cdn.jsdelivr.net/gh/S3NTIN3LOne/jellyfin-elegantfin-tv@v0.1.15/desktop/ElegantFin-seasonal.js). Die Effektgestaltung wird vom vorhandenen lokalen CSS-Theme übernommen; das Plugin unterdrückt den zusätzlichen CSS-Nachlader dieses Scripts. Die Script-Datei selbst wird über jsDelivr geladen.
+In Desktop- und Mobilansicht lädt Jelly+ einmalig [ElegantFin-seasonal.js v0.1.15](https://cdn.jsdelivr.net/gh/S3NTIN3LOne/jellyfin-elegantfin-tv@v0.1.15/desktop/ElegantFin-seasonal.js). Die Effektgestaltung wird vom vorhandenen lokalen CSS-Theme übernommen; das Plugin unterdrückt den zusätzlichen CSS-Nachlader dieses Scripts. Die Script-Datei selbst wird über jsDelivr geladen.
 
 Das Script entscheidet anhand von Datum, Medien und Systemeinstellung für reduzierte Bewegung, ob Effekte erscheinen. Im TV-Layout wird das Desktop-Script nicht geladen. Die Effekte sind unabhängig vom Admin-Schalter für die Empfehlungszeile.
 
@@ -83,7 +87,7 @@ npm test
 Paket und Manifest erstellen (PowerShell 7 oder Windows PowerShell):
 
 ```powershell
-./scripts/package.ps1 -Version 0.1.5.0 -Repository S3NTIN3LOne/Jellyplus
+./scripts/package.ps1 -Version 0.1.6.0 -Repository S3NTIN3LOne/Jellyplus
 ```
 
 Das ZIP enthält ausschließlich die Plugin-DLL einschließlich eingebetteter Webressourcen. Die Jellyfin-Assemblies liefert der Server. Der GitHub-Workflow **Publish release** erstellt nach erfolgreichen Tests eine Vorabversion und aktualisiert das Manifest. Vor einer stabilen Freigabe die Geräteprüfungen in [TESTING.md](TESTING.md) durchführen.

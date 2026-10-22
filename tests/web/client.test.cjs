@@ -34,8 +34,13 @@ function fixture(markup, responses = {}, configure) {
             cancel.onclick=()=>{sheet.remove();reject(new Error('ActionSheet closed without resolving'))};sheet.appendChild(cancel);w.document.body.appendChild(sheet);
         });
     }};
-    const requireNative = id => id==='cards'?{default:cards}:{default:actions};
-    requireNative.m={cards:function(){/* getCardsHtml: */},actions:function(){/* ActionSheet closed without resolving */}};
+    const defaults = ['smalllibrarytiles','resume','resumeaudio','resumebook','livetv','nextup','latestmedia','none','none','none'];
+    const preferences = { get: key => responses.HomeSections?.[Number(key.replace('homesection',''))], setUserInfo() {}, serverConfig() {} };
+    const home = { getDefaultSection: index => defaults[index], loadSections() {} };
+    const modules = { cards:{default:cards}, actions:{default:actions}, home:{default:home}, preferences:{currentSettings:preferences} };
+    const requireNative = id => modules[id];
+    requireNative.m={cards:function(){/* getCardsHtml: */},actions:function(){/* ActionSheet closed without resolving */},
+        home:function(){/* getDefaultSection: */},preferences:function(){/* displayPrefs.CustomPrefs */}};
     w.webpackChunk={push:chunk=>chunk[2](requireNative)};
     w.ApiClient = {
         getCurrentUserId: () => 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', accessToken: () => 'test-token', serverId: () => 'server',
@@ -330,4 +335,50 @@ for (const feed of ['Als nächstes','Weiterschauen']) {
 test('live TV headers do not become the recommendation insertion target',async()=>{
     const{dom,w}=fixture('<div id="homeTab"><div class="sections"><div class="verticalSection" id="live"><a class="more sectionTitleTextButton" href="#/livetv">Live-TV</a></div><div id="latest"><div class="verticalSection"><a class="more sectionTitleTextButton" href="#/movies?topParentId=aaa">Latest</a></div></div></div></div>',{Seasonal:{Title:'Halloween',Items:[{Id:'bbbb',Name:'Film'}]}});
     try{await wait(400);assert.equal(w.document.querySelector('.jp-season').parentElement.id,'latest');assert.equal(w.document.querySelector('#live .jp-season'),null)}finally{dom.window.close()}
+});
+
+for (const types of [
+    ['livetv','smalllibrarytiles','resume','nextup','latestmedia'],
+    ['livetv','resume','nextup','latestmedia'],
+    ['librarybuttons','livetv','resume','nextup','latestmedia'],
+    ['livetv','smalllibrarytiles','resume','nextup','none']
+]) {
+    test('TV uses configured latest slot despite structurally identical live-TV rows: '+types.join(','),async()=>{
+        const configured=types.concat(Array(10-types.length).fill('none'));
+        const rendered=types.includes('smalllibrarytiles')||types.includes('librarybuttons')?configured:['smalllibrarytiles',...configured];
+        const rows=rendered.map((type,i)=>'<div class="section'+i+'"><div class="verticalSection"><h2>'+type+'</h2><div class="itemsContainer"></div></div></div>').join('');
+        const {dom,w}=fixture('<div class="homePage"><div class="homeSectionsContainer">'+rows+'</div></div>',{
+            HomeSections:configured,Seasonal:{Title:'Halloween',Items:[{Id:'bbbb',Name:'Film'}]}
+        },w=>w.document.documentElement.classList.add('layout-tv'));
+        try {
+            await wait(400);
+            const section=w.document.querySelector('.jp-season'),home=w.document.querySelector('.homeSectionsContainer');
+            const index=rendered.indexOf('latestmedia');
+            if(index>=0){
+                assert.equal(section.parentElement,home.querySelector('.section'+index));
+                assert.equal(section.parentElement.firstElementChild,section);
+                assert.equal(home.children.length,rendered.length);
+                // Simulate a TV theme reordering the configured slot.
+                section.parentElement.style.order='20';await wait();
+                assert.equal(w.getComputedStyle(section.parentElement).order,'20');
+            }else{
+                assert.equal(section.parentElement,home);assert.equal(home.lastElementChild,section);
+            }
+            assert.equal(home.querySelector('.section'+rendered.indexOf('livetv')+' .jp-season'),null);
+        }finally{dom.window.close()}
+    });
+}
+
+test('TV waits for its configured latest slot and follows preference changes',async()=>{
+    const responses={HomeSections:['livetv','smalllibrarytiles','latestmedia',...Array(7).fill('none')],Seasonal:{Title:'Halloween',Items:[{Id:'bbbb',Name:'Film'}]}};
+    const {dom,w}=fixture('<div class="homePage"><div class="homeSectionsContainer"><div class="section0"><div class="verticalSection"><div class="itemsContainer"></div></div></div></div></div>',responses,w=>w.document.documentElement.classList.add('layout-tv'));
+    try{
+        await wait(400);const home=w.document.querySelector('.homeSectionsContainer'),section=home.querySelector('.jp-season');
+        assert.equal(home.lastElementChild,section);
+        home.insertAdjacentHTML('beforeend','<div class="section2"><div class="verticalSection"><div class="itemsContainer"></div></div></div>');await wait();
+        assert.equal(section.parentElement.className,'section2');
+        responses.HomeSections[2]='none';responses.HomeSections[4]='latestmedia';
+        home.insertAdjacentHTML('beforeend','<div class="section4"><div class="verticalSection"><div class="itemsContainer"></div></div></div>');await wait();
+        assert.equal(section.parentElement.className,'section4');assert.equal(home.querySelectorAll('.jp-season').length,1);
+    }finally{dom.window.close()}
 });

@@ -16,14 +16,20 @@
             window.webpackChunk.push([['jellyplus-native-ui'], {}, function (require) { nativeRequire = require; }]);
         }
         if (!nativeRequire || !nativeRequire.m) return null;
-        var marker = name === 'cards' ? 'getCardsHtml:' : 'ActionSheet closed without resolving';
+        var markers = { cards: 'getCardsHtml:', actions: 'ActionSheet closed without resolving',
+            home: 'getDefaultSection:', preferences: 'displayPrefs.CustomPrefs' };
+        var marker = markers[name];
         var ids = Object.keys(nativeRequire.m);
         for (var i = 0; i < ids.length; i++) {
             if (String(nativeRequire.m[ids[i]]).indexOf(marker) < 0) continue;
             var exports = nativeRequire(ids[i]);
             var candidates = [exports].concat(Object.keys(exports).map(function (key) { return exports[key]; }));
             var component = candidates.find(function (value) {
-                return value && (name === 'cards' ? typeof value.getCardsHtml === 'function' : typeof value.show === 'function');
+                if (!value) return false;
+                if (name === 'cards') return typeof value.getCardsHtml === 'function';
+                if (name === 'home') return typeof value.getDefaultSection === 'function' && typeof value.loadSections === 'function';
+                if (name === 'preferences') return typeof value.get === 'function' && typeof value.setUserInfo === 'function' && typeof value.serverConfig === 'function';
+                return typeof value.show === 'function';
             });
             if (component) { nativeModules[name] = component; return component; }
         }
@@ -50,7 +56,7 @@
         var response = await fetch(current.getUrl('Jellyplus/' + path), {
             method: method || 'GET',
             headers: {
-                Authorization: 'MediaBrowser Client="Jellyplus", Device="Web", DeviceId="' + (current.deviceId ? current.deviceId() : 'jellyplus-web') + '", Version="0.1.5", Token="' + current.accessToken() + '"',
+                Authorization: 'MediaBrowser Client="Jellyplus", Device="Web", DeviceId="' + (current.deviceId ? current.deviceId() : 'jellyplus-web') + '", Version="0.1.6", Token="' + current.accessToken() + '"',
                 'Content-Type': 'application/json'
             },
             body: body === undefined ? undefined : JSON.stringify(body),
@@ -217,6 +223,29 @@
         form.insertBefore(section, submit);
     }
     function placeSeasonal(home, section) {
+        if (document.documentElement.classList.contains('layout-tv')) {
+            // TV headings have no latest-media links. Live TV uses the same
+            // nested row structure, so resolve Jellyfin's configured slot.
+            var sections = nativeComponent('home');
+            var preferences = nativeComponent('preferences');
+            var types = [];
+            if (sections && preferences) {
+                for (var index = 0; index < 10; index++) {
+                    var type = preferences.get('homesection' + index) || sections.getDefaultSection(index);
+                    types.push(type === 'folders' ? sections.getDefaultSection(0) : type);
+                }
+                // Jellyfin prepends a library row in TV mode if none is configured.
+                if (types.indexOf('smalllibrarytiles') < 0 && types.indexOf('librarybuttons') < 0) types.unshift('smalllibrarytiles');
+            }
+            var slotIndex = types.indexOf('latestmedia');
+            var tvLatest = slotIndex < 0 ? null : Array.prototype.find.call(home.children, function (slot) {
+                return slot.classList.contains('section' + slotIndex);
+            });
+            if (tvLatest) {
+                if (tvLatest.firstElementChild !== section) tvLatest.insertBefore(section, tvLatest.firstChild);
+            } else if (section.parentNode !== home || section !== home.lastElementChild) home.appendChild(section);
+            return;
+        }
         var link = home.querySelector('a.more.sectionTitleTextButton[href*="topParentId"], a.more.sectionTitleTextButton[href*="parentId"], a[href*="section=latest"], a[href*="section%3Dlatest"], a[href*="/latest"]');
         var latest = link;
         while (latest && latest.parentNode !== home) latest = latest.parentElement;

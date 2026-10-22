@@ -1,5 +1,5 @@
 param(
-    [string]$Version = '0.1.5.0',
+    [string]$Version = '0.1.6.0',
     [string]$Repository = 'S3NTIN3LOne/Jellyplus'
 )
 $ErrorActionPreference = 'Stop'
@@ -24,7 +24,7 @@ $manifest = @(@{
     category = 'General'
     versions = @(@{
         version = $Version
-        changelog = 'Load ElegantFin seasonal effects 0.1.15 so particles stop below Media Bar and My Media and follow scrolling and resizing. Update the matching script-loader test. Install the updated theme CSS for profile and library-order fixes.'
+        changelog = 'Resolve the TV recommendation position from Jellyfin home settings, including automatically inserted library rows, instead of matching Live TV row markup.'
         targetAbi = '12.2.0.0'
         sourceUrl = "https://github.com/$Repository/releases/download/v$Version/$zipName"
         checksum = (Get-FileHash -LiteralPath $zip -Algorithm MD5).Hash.ToLowerInvariant()
