@@ -1,3 +1,10 @@
+Jelly+ 0.1.7.0 – Zeitliche Abgrenzung saisonaler Empfehlungen.
+
+- Bereits angezeigte Saisonempfehlungen werden etwa jede Minute erneut beim Server geprüft und nach Saisonende entfernt, auch auf länger geöffneten Startseiten.
+- Die Zeiträume bleiben inklusive: Halloween vom 15.10. bis 01.11., Weihnachten vom 01.12. bis 31.12.; maßgeblich ist die Serverzeitzone.
+- 21 .NET-Tests und 25 DOM-Tests erfolgreich, einschließlich eines Regressionstests für das Entfernen und erneute Anzeigen der Saisonzeile.
+- Nach der Installation Jellyfin neu starten und geöffnete Clients neu laden.
+
 Jelly+ 0.1.6.0 für Jellyfin 12.2 – Platzierung der Saisonempfehlungen im TV-Modus.
 
 - Im TV-Modus wird der Abschnitt für kürzlich hinzugefügte Medien anhand der tatsächlichen Jellyfin-Startseitenkonfiguration ermittelt. Live-TV-Zeilen mit ähnlichem HTML-Aufbau werden nicht mehr als Ziel verwendet.

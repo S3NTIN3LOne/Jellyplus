@@ -1,5 +1,5 @@
 param(
-    [string]$Version = '0.1.6.0',
+    [string]$Version = '0.1.7.0',
     [string]$Repository = 'S3NTIN3LOne/Jellyplus'
 )
 $ErrorActionPreference = 'Stop'
@@ -24,7 +24,7 @@ $manifest = @(@{
     category = 'General'
     versions = @(@{
         version = $Version
-        changelog = 'Resolve the TV recommendation position from Jellyfin home settings, including automatically inserted library rows, instead of matching Live TV row markup.'
+        changelog = 'Revalidate seasonal recommendations every minute and remove expired rows when the server season ends.'
         targetAbi = '12.2.0.0'
         sourceUrl = "https://github.com/$Repository/releases/download/v$Version/$zipName"
         checksum = (Get-FileHash -LiteralPath $zip -Algorithm MD5).Hash.ToLowerInvariant()

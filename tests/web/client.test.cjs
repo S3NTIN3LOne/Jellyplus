@@ -62,6 +62,29 @@ function fixture(markup, responses = {}, configure) {
     return { dom, w, calls, nativeCalls };
 }
 
+test('seasonal rows expire and return when the server season changes', async () => {
+    let active = true;
+    let now = Date.now();
+    const { dom, w, calls } = fixture('<div id="homeTab"><div class="sections"></div></div>', {
+        Seasonal: () => active ? { Title: 'Halloween', Items: [{ Id: 'bbbb', Name: 'Film' }] } : { Title: '', Items: [] }
+    }, w => { w.Date.now = () => now; });
+    const trigger = async () => { w.document.body.appendChild(w.document.createElement('span')); await wait(350); };
+    try {
+        await wait(350);
+        assert.ok(w.document.querySelector('.jp-season'));
+        active = false;
+        await trigger();
+        assert.equal(calls.filter(c => c.path === 'Seasonal').length, 1);
+        now += 61000;
+        await trigger();
+        assert.equal(w.document.querySelector('.jp-season'), null);
+        active = true;
+        now += 61000;
+        await trigger();
+        assert.ok(w.document.querySelector('.jp-season'));
+    } finally { dom.window.close(); }
+});
+
 test('adds a profile preference and stores opt-in through an authenticated request', async () => {
     const { dom, w, calls } = fixture('<div id="languagePreferencesPage"><div class="settingsContainer"></div></div>');
     try {

@@ -360,7 +360,10 @@
         var home = document.querySelector('#homeTab .sections, #homeTab.homeSectionsContainer, .homePage .homeSectionsContainer, .homePage .sections');
         if (!home || !settings.seasonalRecommendations) return;
         var existing = home.querySelector('.jp-season');
-        if (existing) { placeSeasonal(home, existing); return; }
+        if (existing) {
+            placeSeasonal(home, existing);
+            if (Date.now() < Number(existing.dataset.refreshAt)) return;
+        }
         if (seasonLoading) return;
         var key = user + ':' + new Date().toDateString();
         if (Date.now() < seasonRetryAt && seasonKey === key) return;
@@ -371,7 +374,10 @@
         try {
             var result = await request('Seasonal');
             if (!connected(home) || api().getCurrentUserId() !== requestUser || !settings || !settings.seasonalRecommendations) return;
-            if (!result.items || !result.items.length) { seasonKey = key; seasonRetryAt = Date.now() + 60000; return; }
+            if (!result.items || !result.items.length) {
+                if (existing) existing.remove();
+                seasonKey = key; seasonRetryAt = Date.now() + 60000; return;
+            }
             var media = await api().getItems(requestUser, {
                 Ids: result.items.map(function (item) { return item.id; }).join(','),
                 Fields: 'PrimaryImageAspectRatio,MediaSourceCount', EnableTotalRecordCount: false,
@@ -379,8 +385,13 @@
             });
             if (!connected(home) || api().getCurrentUserId() !== requestUser || !settings || !settings.seasonalRecommendations) return;
             var items = result.items.map(function (item) { return media.Items.find(function (m) { return idKey(m.Id) === idKey(item.id); }); }).filter(Boolean);
-            if (!items.length) { seasonKey = key; seasonRetryAt = Date.now() + 60000; return; }
+            if (!items.length) {
+                if (existing) existing.remove();
+                seasonKey = key; seasonRetryAt = Date.now() + 60000; return;
+            }
             var section = element('div', '', 'verticalSection jp-season jp-owned');
+            section.dataset.refreshAt = String(Date.now() + 60000);
+            if (existing) existing.remove();
             section.innerHTML = '<div class="sectionTitleContainer sectionTitleContainer-cards padded-left"><h2 class="sectionTitle sectionTitle-cards"></h2></div>' +
                 '<div is="emby-scroller" class="padded-top-focusscale padded-bottom-focusscale" data-centerfocus="true" data-hidescrollbar="true">' +
                 '<div is="emby-itemscontainer" class="itemsContainer scrollSlider focuscontainer-x"></div></div>';
